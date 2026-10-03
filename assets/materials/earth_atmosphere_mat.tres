@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/earth_atmosphere.gdshader" id="1_shd"]
+
+[resource]
+resource_name = "EarthAtmosphereMaterial"
+render_priority = 2
+shader = ExtResource("1_shd")
+shader_parameter/sun_direction = Vector3(0.707, 0.35, 0.612)
+shader_parameter/rayleigh_day_color = Color(0.18, 0.6, 1, 1)
+shader_parameter/rayleigh_sunset_color = Color(1, 0.45, 0.12, 1)
+shader_parameter/airglow_green_color = Color(0.12, 0.95, 0.45, 1)
+shader_parameter/atmosphere_density = 2.4
+shader_parameter/rim_falloff_power = 3.8
+shader_parameter/mie_phase_strength = 1.8
+shader_parameter/airglow_intensity = 0.32

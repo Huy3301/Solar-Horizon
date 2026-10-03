@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" load_steps=6 format=3]
+
+[ext_resource type="Shader" path="res://shaders/earth_surface.gdshader" id="1_shd"]
+[ext_resource type="Texture2D" path="res://assets/textures/earth_albedo.png" id="2_alb"]
+[ext_resource type="Texture2D" path="res://assets/textures/earth_normal.png" id="3_nrm"]
+[ext_resource type="Texture2D" path="res://assets/textures/earth_specular_water.png" id="4_spc"]
+[ext_resource type="Texture2D" path="res://assets/textures/earth_city_lights.png" id="5_lgt"]
+
+[resource]
+resource_name = "EarthSurfaceMaterial"
+shader = ExtResource("1_shd")
+shader_parameter/sun_direction = Vector3(0.707, 0.35, 0.612)
+shader_parameter/night_lights_intensity = 3.2
+shader_parameter/night_lights_tint = Color(1, 0.82, 0.45, 1)
+shader_parameter/atmosphere_rim_influence = 0.5
+shader_parameter/atmosphere_rim_color = Color(0.2, 0.6, 1, 1)
+shader_parameter/planet_rotation = 0.0
+shader_parameter/albedo_map = ExtResource("2_alb")
+shader_parameter/normal_map = ExtResource("3_nrm")
+shader_parameter/water_mask = ExtResource("4_spc")
+shader_parameter/night_lights = ExtResource("5_lgt")

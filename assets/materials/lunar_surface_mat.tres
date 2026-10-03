@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/lunar_surface.gdshader" id="1_lunar"]
+
+[resource]
+resource_name = "LunarSurfaceMaterial"
+shader = ExtResource("1_lunar")
+shader_parameter/highland_albedo = Color(0.82, 0.84, 0.86, 1)
+shader_parameter/mare_basalt_albedo = Color(0.28, 0.29, 0.31, 1)
+shader_parameter/ejecta_ray_color = Color(0.92, 0.94, 0.97, 1)
+shader_parameter/crater_frequency = 24.0
+shader_parameter/opposition_surge_intensity = 1.8
+shader_parameter/sun_direction = Vector3(0.707, 0.35, 0.612)

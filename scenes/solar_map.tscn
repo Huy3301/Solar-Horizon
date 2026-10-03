@@ -1,0 +1,111 @@
+[gd_scene load_steps=4 format=3 uid="uid://solar_map_scene_01"]
+
+[ext_resource type="Script" path="res://scripts/solar_map_view.gd" id="1_map"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_schematic"]
+bg_color = Color(0.01, 0.02, 0.04, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.15, 0.6, 0.9, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.03, 0.07, 0.12, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.75, 1, 0.5)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="SolarMap" type="CanvasLayer"]
+script = ExtResource("1_map")
+
+[node name="MapContainer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="Panel" parent="MapContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_schematic")
+
+[node name="HeaderLabel" type="Label" parent="MapContainer"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 16.0
+offset_right = 300.0
+offset_bottom = 44.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.3, 0.85, 1, 1)
+text = "THEORETICAL ORBITAL DYNAMICS // SOLAR SYSTEM SCHEMATIC"
+horizontal_alignment = 1
+
+[node name="InfoPanel" type="PanelContainer" parent="MapContainer"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = -280.0
+offset_right = 480.0
+offset_bottom = -32.0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="MapContainer/InfoPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="InfoLabel" type="Label" parent="MapContainer/InfoPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.95, 1, 1)
+text = "CALCULATING ORBITAL CONIC SECTION..."
+
+[node name="WarpPanel" type="PanelContainer" parent="MapContainer"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -260.0
+offset_top = 24.0
+offset_right = -32.0
+offset_bottom = 80.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="WarpLabel" type="Label" parent="MapContainer/WarpPanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+text = "TIME WARP: 1x"
+horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="MapContainer"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -65.0
+offset_right = -32.0
+offset_bottom = -25.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "CLOSE MAP [M]"

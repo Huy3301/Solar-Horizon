@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/engine_plume.gdshader" id="1_shd"]
+
+[resource]
+resource_name = "EnginePlume"
+render_priority = 1
+shader = ExtResource("1_shd")
+shader_parameter/plume_color_core = Color(0.3, 0.75, 1, 1)
+shader_parameter/plume_color_outer = Color(0.08, 0.25, 0.85, 1)
+shader_parameter/thrust_intensity = 1.0
+shader_parameter/shock_diamond_frequency = 8.0

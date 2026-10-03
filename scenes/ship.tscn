@@ -1,0 +1,103 @@
+[gd_scene load_steps=12 format=3 uid="uid://ship_scene_01"]
+
+[ext_resource type="Script" path="res://scripts/ship_flight_controller.gd" id="1_flight"]
+[ext_resource type="ArrayMesh" path="res://assets/models/spacecraft_orbiter.obj" id="2_orbiter"]
+[ext_resource type="Material" path="res://assets/materials/spacecraft_hull.tres" id="3_hull_mat"]
+[ext_resource type="Material" path="res://assets/materials/engine_plume.tres" id="4_plume_mat"]
+[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="5_camera"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_fuselage"]
+size = Vector3(3.6, 2.2, 14.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wings"]
+size = Vector3(13.8, 0.4, 6.8)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_plume"]
+material = ExtResource("4_plume_mat")
+top_radius = 0.25
+bottom_radius = 0.75
+height = 4.2
+radial_segments = 24
+rings = 8
+
+[sub_resource type="SphereMesh" id="SphereMesh_navlight"]
+radius = 0.08
+height = 0.16
+radial_segments = 16
+rings = 8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_strobe_red"]
+albedo_color = Color(1, 0.1, 0.1, 1)
+emission_enabled = true
+emission = Color(1, 0.15, 0.15, 1)
+emission_energy_multiplier = 6.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_strobe_green"]
+albedo_color = Color(0.1, 1, 0.2, 1)
+emission_enabled = true
+emission = Color(0.15, 1, 0.25, 1)
+emission_energy_multiplier = 6.0
+
+[node name="Ship" type="RigidBody3D"]
+mass = 14500.0
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, -0.15, 0.5)
+script = ExtResource("1_flight")
+
+[node name="FuselageCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0.5)
+shape = SubResource("BoxShape3D_fuselage")
+
+[node name="WingCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 1.8)
+shape = SubResource("BoxShape3D_wings")
+
+[node name="VisualModel" type="Node3D" parent="."]
+
+[node name="OrbiterHighPolyMesh" type="MeshInstance3D" parent="VisualModel"]
+mesh = ExtResource("2_orbiter")
+surface_material_override/0 = ExtResource("3_hull_mat")
+
+[node name="LeftEnginePlume" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, -0.85, -0.1, 9.7)
+mesh = SubResource("CylinderMesh_plume")
+
+[node name="RightEnginePlume" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0.85, -0.1, 9.7)
+mesh = SubResource("CylinderMesh_plume")
+
+[node name="PortNavLight" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9, 0.15, 2.8)
+material_override = SubResource("StandardMaterial3D_strobe_red")
+mesh = SubResource("SphereMesh_navlight")
+
+[node name="StarboardNavLight" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9, 0.15, 2.8)
+material_override = SubResource("StandardMaterial3D_strobe_green")
+mesh = SubResource("SphereMesh_navlight")
+
+[node name="RadarAltimeter" type="RayCast3D" parent="."]
+target_position = Vector3(0, -50000, 0)
+
+[node name="GearFrontRay" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -4.5)
+target_position = Vector3(0, -1.8, 0)
+
+[node name="GearLeftRay" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, -0.5, 2.2)
+target_position = Vector3(0, -1.8, 0)
+
+[node name="GearRightRay" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, -0.5, 2.2)
+target_position = Vector3(0, -1.8, 0)
+
+[node name="CameraController" type="Node3D" parent="."]
+script = ExtResource("5_camera")
+chase_distance = 28.0
+chase_height = 7.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+current = true
+fov = 72.0
+near = 0.1
+far = 8000000.0

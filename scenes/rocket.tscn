@@ -1,0 +1,124 @@
+[gd_scene load_steps=11 format=3 uid="uid://rocket_scene_01"]
+
+[ext_resource type="Script" path="res://scripts/rocket_flight_controller.gd" id="1_rocket"]
+[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/trajectory_renderer.gd" id="3_trajectory"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
+height = 52.0
+radius = 1.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fuselage"]
+albedo_color = Color(0.92, 0.93, 0.95, 1)
+metallic = 0.5
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_interstage"]
+albedo_color = Color(0.12, 0.12, 0.15, 1)
+metallic = 0.8
+roughness = 0.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_engine"]
+albedo_color = Color(0.2, 0.2, 0.25, 1)
+metallic = 0.95
+roughness = 0.15
+emission_enabled = true
+emission = Color(1, 0.45, 0.1, 1)
+emission_energy_multiplier = 5.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_s1"]
+material = SubResource("StandardMaterial3D_fuselage")
+top_radius = 1.85
+bottom_radius = 1.85
+height = 36.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_s2"]
+material = SubResource("StandardMaterial3D_fuselage")
+top_radius = 1.85
+bottom_radius = 1.85
+height = 10.0
+
+[sub_resource type="PrismMesh" id="PrismMesh_fairing"]
+material = SubResource("StandardMaterial3D_fuselage")
+left_to_right = 0.5
+size = Vector3(3.7, 6.0, 3.7)
+
+[node name="HeavyRocket" type="RigidBody3D"]
+mass = 534000.0
+script = ExtResource("1_rocket")
+leg_contact_ray_path = NodePath("GroundContactRay")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 26, 0)
+shape = SubResource("CylinderShape3D_body")
+
+[node name="VisualModel" type="Node3D" parent="."]
+
+[node name="Stage1Booster" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0)
+mesh = SubResource("CylinderMesh_s1")
+
+[node name="Interstage" type="CSGCylinder3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 36.5, 0)
+radius = 1.86
+height = 1.0
+material = SubResource("StandardMaterial3D_interstage")
+
+[node name="Stage2Upper" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 42, 0)
+mesh = SubResource("CylinderMesh_s2")
+
+[node name="Fairing" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)
+mesh = SubResource("PrismMesh_fairing")
+
+[node name="EngineCluster" type="Node3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+
+[node name="CenterNozzle" type="CSGCylinder3D" parent="VisualModel/EngineCluster"]
+radius = 0.4
+height = 1.2
+material = SubResource("StandardMaterial3D_engine")
+
+[node name="OuterNozzle1" type="CSGCylinder3D" parent="VisualModel/EngineCluster"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0, 0)
+radius = 0.35
+height = 1.2
+material = SubResource("StandardMaterial3D_engine")
+
+[node name="OuterNozzle2" type="CSGCylinder3D" parent="VisualModel/EngineCluster"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.9, 0, 0)
+radius = 0.35
+height = 1.2
+material = SubResource("StandardMaterial3D_engine")
+
+[node name="OuterNozzle3" type="CSGCylinder3D" parent="VisualModel/EngineCluster"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.9)
+radius = 0.35
+height = 1.2
+material = SubResource("StandardMaterial3D_engine")
+
+[node name="OuterNozzle4" type="CSGCylinder3D" parent="VisualModel/EngineCluster"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.9)
+radius = 0.35
+height = 1.2
+material = SubResource("StandardMaterial3D_engine")
+
+[node name="GroundContactRay" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+target_position = Vector3(0, -2.5, 0)
+
+[node name="CameraController" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24, 0)
+script = ExtResource("2_camera")
+chase_distance = 65.0
+chase_height = 12.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+current = true
+fov = 68.0
+far = 500000.0
+
+[node name="TrajectoryRenderer" type="Node3D" parent="."]
+script = ExtResource("3_trajectory")
+vessel_path = NodePath("..")

@@ -4,6 +4,9 @@ class_name GameBootstrap extends Node
 ## Connects PlayerRig, Ship, GameUI, TutorialDirector, SurvivalSystem,
 ## InventorySystem, ScannerSystem, MiningLaser, and SaveService.
 
+const SaveServiceScript = preload("res://game/autoload/save_service.gd")
+const DEFAULT_SAVE_PATH: String = "user://save_data.json"
+
 signal soi_changed(dominant_body_id: StringName)
 signal saved(path: String)
 signal loaded(path: String)
@@ -382,7 +385,13 @@ func respawn_player() -> void:
 
 # --- Save & Load Implementation (F5 / F9 / Autosave) ---
 
-func quick_save(path: String = SaveService.SAVE_PATH) -> bool:
+func _get_saver() -> Object:
+	var saver: Object = get_node_or_null("/root/SaveService")
+	if saver:
+		return saver
+	return SaveServiceScript.new()
+
+func quick_save(path: String = DEFAULT_SAVE_PATH) -> bool:
 	var ship_dict: Dictionary = {}
 	if is_instance_valid(ship):
 		ship_dict = {
@@ -398,8 +407,13 @@ func quick_save(path: String = SaveService.SAVE_PATH) -> bool:
 	if is_instance_valid(on_foot_rig):
 		on_foot_pos = [on_foot_rig.global_position.x, on_foot_rig.global_position.y, on_foot_rig.global_position.z]
 
+	var saver = _get_saver()
+	var v_num: int = 1
+	if "CURRENT_VERSION" in saver:
+		v_num = saver.CURRENT_VERSION
+
 	var profile: Dictionary = {
-		"version": SaveService.CURRENT_VERSION,
+		"version": v_num,
 		"inventory": inventory_system.to_dict() if is_instance_valid(inventory_system) else {},
 		"survival_state": survival_system.to_dict() if is_instance_valid(survival_system) else {},
 		"ship_state": ship_dict,
@@ -412,15 +426,27 @@ func quick_save(path: String = SaveService.SAVE_PATH) -> bool:
 		"discoveries": discovery_system.get("discoveries") if is_instance_valid(discovery_system) else {},
 	}
 
-	var success = SaveService.save_profile(profile, path)
+	var success: bool = false
+	if saver.has_method("save_profile"):
+		success = saver.save_profile(profile, path)
+	if saver is RefCounted or not saver.is_inside_tree():
+		if saver is Node and not saver.is_inside_tree():
+			saver.free()
+
 	if success:
 		saved.emit(path)
 		if is_instance_valid(game_ui) and game_ui.has_method("set_interaction_prompt"):
 			game_ui.set_interaction_prompt(true, "QUICK SAVED")
 	return success
 
-func quick_load(path: String = SaveService.SAVE_PATH) -> bool:
-	var data: Dictionary = SaveService.load_profile(path)
+func quick_load(path: String = DEFAULT_SAVE_PATH) -> bool:
+	var saver = _get_saver()
+	var data: Dictionary = {}
+	if saver.has_method("load_profile"):
+		data = saver.load_profile(path)
+	if saver is Node and not saver.is_inside_tree():
+		saver.free()
+
 	if data.is_empty():
 		return false
 
@@ -472,7 +498,7 @@ func quick_load(path: String = SaveService.SAVE_PATH) -> bool:
 		game_ui.set_interaction_prompt(true, "QUICK LOADED")
 	return true
 
-func autosave(path: String = SaveService.SAVE_PATH) -> bool:
+func autosave(path: String = DEFAULT_SAVE_PATH) -> bool:
 	return quick_save(path)
 
 func _unhandled_input(event: InputEvent) -> void:

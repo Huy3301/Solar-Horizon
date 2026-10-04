@@ -1,12 +1,15 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://game/universe/main_world.gd" id="1_main_world"]
 [ext_resource type="PackedScene" path="res://game/fx/sky_environment.tscn" id="2_sky_env"]
 [ext_resource type="PackedScene" path="res://game/fx/earth_visual.tscn" id="3_earth_vis"]
 [ext_resource type="PackedScene" path="res://game/fx/moon_visual.tscn" id="4_moon_vis"]
 [ext_resource type="PackedScene" path="res://scenes/ship.tscn" id="5_ship"]
-[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="6_hud"]
-[ext_resource type="Script" path="res://game/planet/planet_runtime.gd" id="7_planet_runtime"]
+[ext_resource type="PackedScene" path="res://game/player/player_rig.tscn" id="6_player_rig"]
+[ext_resource type="PackedScene" path="res://game/ui/game_ui.tscn" id="7_game_ui"]
+[ext_resource type="Script" path="res://game/planet/planet_runtime.gd" id="8_planet_runtime"]
+[ext_resource type="Script" path="res://game/tutorial/tutorial_director.gd" id="9_tut_dir"]
+[ext_resource type="Script" path="res://game/game_bootstrap.gd" id="10_bootstrap"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_earth"]
 radius = 637100.0
@@ -30,7 +33,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -837100, 0)
 radius = 637100.0
 
 [node name="PlanetRuntime" type="Node3D" parent="EarthGlobe"]
-script = ExtResource("7_planet_runtime")
+script = ExtResource("8_planet_runtime")
 body_name = "Earth"
 planet_radius_m = 637100.0
 max_height_m = 8848.0
@@ -47,7 +50,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3844000)
 radius = 173740.0
 
 [node name="PlanetRuntime" type="Node3D" parent="MoonGlobe"]
-script = ExtResource("7_planet_runtime")
+script = ExtResource("8_planet_runtime")
 body_name = "Moon"
 planet_radius_m = 173740.0
 max_height_m = 10700.0
@@ -63,5 +66,15 @@ shape = SubResource("SphereShape3D_moon")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 linear_velocity = Vector3(0, 0, -2182.2)
 
-[node name="HUD" parent="." instance=ExtResource("6_hud")]
+[node name="PlayerRig" parent="." instance=ExtResource("6_player_rig")]
 ship_path = NodePath("../Ship")
+
+[node name="GameUI" parent="." instance=ExtResource("7_game_ui")]
+player_rig_path = NodePath("../PlayerRig")
+ship_path = NodePath("../Ship")
+
+[node name="TutorialDirector" type="Node" parent="."]
+script = ExtResource("9_tut_dir")
+
+[node name="GameBootstrap" type="Node" parent="."]
+script = ExtResource("10_bootstrap")

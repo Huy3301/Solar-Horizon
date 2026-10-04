@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/recipe_def.gd" id="1_recipe"]
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_fuel_cell"
+display_name = "Assemble Fuel Cell"
+description = "Synthesizes standard chemical bipropellant cell."
+category = "crafting"
+ingredients = {
+"carbon": 1,
+"ice": 1,
+"steel_plate": 1
+}
+products = {
+"fuel_cell": 1
+}
+is_upgrade = false
+upgrade_id = ""
+upgrade_tier = 1
+stat_modifiers = {}

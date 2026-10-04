@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/recipe_def.gd" id="1_recipe"]
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_he3_fuel_cell"
+display_name = "He-3 High Density Fuel"
+description = "Produces three advanced fusion propellant cells utilizing lunar Helium-3."
+category = "crafting"
+ingredients = {
+"he3": 2,
+"steel_plate": 1
+}
+products = {
+"fuel_cell": 3
+}
+is_upgrade = false
+upgrade_id = ""
+upgrade_tier = 1
+stat_modifiers = {}

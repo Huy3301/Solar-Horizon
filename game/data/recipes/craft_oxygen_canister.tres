@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/recipe_def.gd" id="1_recipe"]
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_oxygen_canister"
+display_name = "Compress Oxygen Canister"
+description = "Extracts breathable oxygen from ice and pressurizes it in a steel casing."
+category = "crafting"
+ingredients = {
+"ice": 2,
+"steel_plate": 1
+}
+products = {
+"oxygen_canister": 1
+}
+is_upgrade = false
+upgrade_id = ""
+upgrade_tier = 1
+stat_modifiers = {}

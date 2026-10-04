@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/recipe_def.gd" id="1_recipe"]
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"refine_regolith_iron"
+display_name = "Refine Lunar Regolith"
+description = "Extracts iron oxide and silicates from bulk lunar soil."
+category = "refiner"
+ingredients = {
+"regolith_sample": 3
+}
+products = {
+"iron_ore": 1,
+"silicate": 1
+}
+is_upgrade = false
+upgrade_id = ""
+upgrade_tier = 1
+stat_modifiers = {}

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/recipe_def.gd" id="1_recipe"]
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"upgrade_suit_o2_t3"
+display_name = "Suit O2 Tank Mk III"
+description = "Expands suit life support oxygen reserves to 200 units using lunar isotope insulation."
+category = "upgrade"
+ingredients = {
+"circuit": 2,
+"he3": 1,
+"oxygen_canister": 3
+}
+products = {}
+is_upgrade = true
+upgrade_id = "suit_o2_tank"
+upgrade_tier = 3
+stat_modifiers = {
+"max_life_support": 200.0
+}

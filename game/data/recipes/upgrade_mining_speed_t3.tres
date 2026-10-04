@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/recipe_def.gd" id="1_recipe"]
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"upgrade_mining_speed_t3"
+display_name = "Overclocked Mining Emitter Mk III"
+description = "Boosts mining extraction speed multiplier by +100% using lunar He-3 coils."
+category = "upgrade"
+ingredients = {
+"circuit": 3,
+"he3": 1,
+"steel_plate": 3
+}
+products = {}
+is_upgrade = true
+upgrade_id = "mining_speed"
+upgrade_tier = 3
+stat_modifiers = {
+"mining_speed": 2.0
+}

@@ -1,9 +1,12 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/ship_flight_controller.gd" id="1_flight"]
 [ext_resource type="PackedScene" path="res://assets/models/ships/orbiter/orbiter.glb" id="2_orbiter_glb"]
 [ext_resource type="Material" path="res://assets/materials/engine_plume.tres" id="3_plume_mat"]
 [ext_resource type="Script" path="res://scripts/camera_controller.gd" id="4_camera"]
+[ext_resource type="Script" path="res://game/fx/ship_vfx.gd" id="5_ship_vfx"]
+[ext_resource type="Shader" path="res://shaders/fx/rcs_puff.gdshader" id="6_rcs_shd"]
+[ext_resource type="Shader" path="res://shaders/fx/reentry_plasma.gdshader" id="7_reentry_shd"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_fuselage"]
 size = Vector3(3.6, 2.2, 14.2)
@@ -37,10 +40,41 @@ emission_enabled = true
 emission = Color(0.15, 1, 0.25, 1)
 emission_energy_multiplier = 6.0
 
+[sub_resource type="CylinderMesh" id="CylinderMesh_rcs_puff"]
+top_radius = 0.22
+bottom_radius = 0.03
+height = 0.75
+radial_segments = 12
+rings = 4
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rcs_puff"]
+render_priority = 1
+shader = ExtResource("6_rcs_shd")
+shader_parameter/puff_color_core = Color(0.9, 0.95, 1, 1)
+shader_parameter/puff_color_outer = Color(0.3, 0.65, 1, 1)
+shader_parameter/puff_intensity = 2.0
+shader_parameter/burst_scale = 1.0
+shader_parameter/burst_progress = 0.0
+shader_parameter/cone_expansion = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_reentry_sheath"]
+size = Vector3(14.2, 1.6, 14.8)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_reentry"]
+render_priority = 2
+shader = ExtResource("7_reentry_shd")
+shader_parameter/heat_intensity = 0.0
+shader_parameter/plasma_color_core = Color(1, 0.92, 0.75, 1)
+shader_parameter/plasma_color_outer = Color(1, 0.38, 0.05, 1)
+shader_parameter/plasma_color_edge = Color(0.75, 0.08, 0.35, 1)
+shader_parameter/stream_speed = 22.0
+shader_parameter/turbulence_scale = 3.5
+
 [node name="Ship" type="RigidBody3D"]
 mass = 14500.0
 center_of_mass_mode = 1
 center_of_mass = Vector3(0, -0.15, 0.5)
+continuous_cd = true
 script = ExtResource("1_flight")
 
 [node name="FuselageCollision" type="CollisionShape3D" parent="."]
@@ -84,6 +118,57 @@ mesh = SubResource("SphereMesh_navlight")
 [node name="StarboardNavLight" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_nav_stbd" index="0"]
 material_override = SubResource("StandardMaterial3D_strobe_green")
 mesh = SubResource("SphereMesh_navlight")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_nose_pitch_up" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.375, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_nose_pitch_down" index="0"]
+transform = Transform3D(1, 0, 0, 0, -1, 0, 0, 0, -1, 0, -0.375, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_nose_yaw_port" index="0"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, -0.375, 0, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_nose_yaw_stbd" index="0"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0.375, 0, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_tail_port" index="0"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, -0.375, 0, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_tail_stbd" index="0"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0.375, 0, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="RCSPuff" type="MeshInstance3D" parent="VisualModel/OrbiterModel/SOCKET_rcs_tail_up" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.375, 0)
+visible = false
+material_override = SubResource("ShaderMaterial_rcs_puff")
+mesh = SubResource("CylinderMesh_rcs_puff")
+
+[node name="ReentrySheath" type="MeshInstance3D" parent="VisualModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0.5)
+visible = false
+material_override = SubResource("ShaderMaterial_reentry")
+mesh = SubResource("BoxMesh_reentry_sheath")
+
+[node name="ShipVFX" type="Node3D" parent="."]
+script = ExtResource("5_ship_vfx")
 
 [node name="RadarAltimeter" type="RayCast3D" parent="."]
 target_position = Vector3(0, -50000, 0)

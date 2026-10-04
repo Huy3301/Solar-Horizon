@@ -3,17 +3,17 @@ render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 
 // High-Fidelity Lunar Photometric Regolith & Multi-Scale Impact Crater Shader
 // Features:
-// 1. Dual-phase albedo: Dark titanium-rich Mare basalts vs. pale feldspathic highlands
-// 2. High-albedo radial ejecta ray systems (Tycho / Copernicus style crater rays)
-// 3. Hapke photometric opposition surge (shadow-hiding retroreflection at zero phase angle)
-// 4. Multi-octave procedural impact cratering with central rebound peaks and terraced walls
-// 5. High-contrast terminator micro-relief with cast shadows
+// 1. Dual-phase albedo: Titanium-rich dark Mare basalts (Oceanus Procellarum, Sea of Tranquility) vs pale anorthosite highlands
+// 2. Multi-point radial ejecta ray systems (Tycho & Copernicus style ray networks)
+// 3. Multi-octave impact cratering with central rebound peaks & terraced rims
+// 4. Hapke opposition surge (retroreflective shadow-hiding surge when sun is behind camera)
+// 5. Deep terminator micro-shadowing
 
-uniform vec4 highland_albedo : source_color = vec4(0.82, 0.84, 0.86, 1.0);
-uniform vec4 mare_basalt_albedo : source_color = vec4(0.28, 0.29, 0.31, 1.0);
-uniform vec4 ejecta_ray_color : source_color = vec4(0.92, 0.94, 0.97, 1.0);
-uniform float crater_frequency : hint_range(5.0, 60.0) = 24.0;
-uniform float opposition_surge_intensity : hint_range(0.0, 3.0) = 1.8;
+uniform vec4 highland_albedo : source_color = vec4(0.74, 0.75, 0.77, 1.0);
+uniform vec4 mare_basalt_albedo : source_color = vec4(0.22, 0.23, 0.25, 1.0);
+uniform vec4 ejecta_ray_color : source_color = vec4(0.90, 0.92, 0.95, 1.0);
+uniform float crater_frequency : hint_range(5.0, 60.0) = 22.0;
+uniform float opposition_surge_intensity : hint_range(0.0, 3.0) = 1.6;
 uniform vec3 sun_direction = vec3(0.707, 0.35, 0.612);
 
 varying vec3 v_world_normal;
@@ -35,7 +35,7 @@ float noise_lunar(vec2 p) {
 float fbm_lunar(vec2 uv) {
 	float total = 0.0;
 	float amp = 0.5;
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 5; i++) {
 		total += amp * noise_lunar(uv);
 		uv *= 2.05;
 		amp *= 0.5;
@@ -55,9 +55,10 @@ float crater_cell(vec2 uv) {
 			min_dist = min(min_dist, d);
 		}
 	}
-	float rim = smoothstep(0.48, 0.40, min_dist) * smoothstep(0.28, 0.40, min_dist);
-	float bowl = smoothstep(0.38, 0.0, min_dist);
-	return rim * 1.6 - bowl * 0.85;
+	float rim = smoothstep(0.48, 0.38, min_dist) * smoothstep(0.24, 0.38, min_dist);
+	float bowl = smoothstep(0.35, 0.0, min_dist);
+	float peak = smoothstep(0.08, 0.0, min_dist) * 0.45;
+	return rim * 1.5 - bowl * 0.8 + peak;
 }
 
 void vertex() {
@@ -69,23 +70,34 @@ void vertex() {
 void fragment() {
 	vec2 uv = v_uv * crater_frequency;
 	
-	// Multi-octave cratering
+	// Multi-scale procedural crater field
 	float c1 = crater_cell(uv);
-	float c2 = crater_cell(uv * 2.8 + vec2(3.1, 7.4)) * 0.45;
-	float c3 = crater_cell(uv * 7.2 + vec2(11.5, 19.8)) * 0.2;
-	float terrain_height = c1 + c2 + c3;
+	float c2 = crater_cell(uv * 2.6 + vec2(3.1, 7.4)) * 0.45;
+	float c3 = crater_cell(uv * 6.8 + vec2(11.5, 19.8)) * 0.22;
+	float c_micro = (noise_lunar(uv * 18.0) - 0.5) * 0.12;
+	float terrain_height = c1 + c2 + c3 + c_micro;
 	
-	// Mare vs Highland regional masking
-	float mare_mask = smoothstep(0.42, 0.58, fbm_lunar(v_uv * 3.5));
+	// Dark lunar maria vs pale highlands (continental scale basalt flow shapes)
+	float mare_shape = fbm_lunar(v_uv * 3.2);
+	float mare_mask = smoothstep(0.40, 0.56, mare_shape);
 	vec3 base_color = mix(highland_albedo.rgb, mare_basalt_albedo.rgb, mare_mask);
 	
-	// Tycho / Copernicus bright ejecta rays
-	vec2 ray_center = vec2(0.38, 0.65);
-	float ray_dist = length(v_uv - ray_center);
-	float ray_angle = atan(v_uv.y - ray_center.y, v_uv.x - ray_center.x);
-	float ray_pattern = pow(abs(sin(ray_angle * 8.0 + fbm_lunar(v_uv * 12.0) * 3.0)), 6.0);
-	float ray_intensity = ray_pattern * exp(-ray_dist * 4.5) * 0.85;
-	base_color = mix(base_color, ejecta_ray_color.rgb, ray_intensity);
+	// Radial ray network 1: Tycho (South polar ray center)
+	vec2 ray1_center = vec2(0.42, 0.78);
+	float ray1_dist = length(v_uv - ray1_center);
+	float ray1_angle = atan(v_uv.y - ray1_center.y, v_uv.x - ray1_center.x);
+	float ray1_streamers = pow(abs(sin(ray1_angle * 10.0 + fbm_lunar(v_uv * 14.0) * 3.2)), 7.0);
+	float ray1_intensity = ray1_streamers * exp(-ray1_dist * 3.8) * 0.95;
+	
+	// Radial ray network 2: Copernicus (Equatorial ray center)
+	vec2 ray2_center = vec2(0.68, 0.38);
+	float ray2_dist = length(v_uv - ray2_center);
+	float ray2_angle = atan(v_uv.y - ray2_center.y, v_uv.x - ray2_center.x);
+	float ray2_streamers = pow(abs(sin(ray2_angle * 8.0 + fbm_lunar(v_uv * 11.0) * 2.5)), 6.0);
+	float ray2_intensity = ray2_streamers * exp(-ray2_dist * 4.2) * 0.82;
+	
+	float total_ray = clamp(ray1_intensity + ray2_intensity, 0.0, 1.0);
+	base_color = mix(base_color, ejecta_ray_color.rgb, total_ray * (1.0 - mare_mask * 0.4));
 	
 	// Surface normal perturbation from craters
 	vec3 N = normalize(v_world_normal);
@@ -93,17 +105,18 @@ void fragment() {
 		crater_cell(uv + vec2(0.02, 0.0)) - crater_cell(uv - vec2(0.02, 0.0)),
 		crater_cell(uv + vec2(0.0, 0.02)) - crater_cell(uv - vec2(0.0, 0.02))
 	);
-	vec3 perturbed_N = normalize(N + vec3(dH.x, 0.0, dH.y) * 0.4);
+	vec3 perturbed_N = normalize(N + vec3(dH.x, 0.0, dH.y) * 0.45);
 	
 	// Hapke opposition surge (retroreflection at zero phase angle)
 	vec3 V = normalize(CAMERA_POSITION_WORLD - v_world_pos);
-	// We don't have true sun L here unless updated by script, but we can approximate or use emission
-	// Better yet, just use base_color for ALBEDO and let Godot handle n_dot_l
-	ALBEDO = base_color;
-	ROUGHNESS = 0.94;
+	vec3 L = normalize(sun_direction);
+	float cos_phase = clamp(dot(V, L), 0.0, 1.0);
+	float opposition_surge = pow(cos_phase, 24.0) * opposition_surge_intensity * max(0.0, dot(perturbed_N, L));
+	
+	ALBEDO = base_color + ejecta_ray_color.rgb * opposition_surge * 0.35;
+	ROUGHNESS = 0.92;
 	METALLIC = 0.02;
 	SPECULAR = 0.04;
 	
-	// Apply Normal map perturbation
 	NORMAL = perturbed_N;
 }

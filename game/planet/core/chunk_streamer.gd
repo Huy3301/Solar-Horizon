@@ -10,6 +10,9 @@ func request_chunk(node, callback: Callable):
 	var task_id = WorkerThreadPool.add_task(_generate_chunk.bind(node, callback), true, "GenerateChunk")
 	pending_tasks.append(task_id)
 
+func generate_chunk_sync(node_data: Dictionary) -> ConcavePolygonShape3D:
+	return _build_collision_mesh(node_data)
+
 func _generate_chunk(node_data: Dictionary, callback: Callable):
 	var collision_data = _build_collision_mesh(node_data)
 	callback.call_deferred(collision_data)
@@ -25,7 +28,7 @@ func _build_collision_mesh(node_data: Dictionary) -> ConcavePolygonShape3D:
 		for x in range(res):
 			var uv = node_data.offset + Vector2(x * step, y * step) * node_data.scale
 			var dir = PlanetQuadtree.get_spherified_dir(node_data.face, uv)
-			var h = TerrainNoise.sample_height(dir.x, dir.y, dir.z)
+			var h = TerrainNoise.sample_height(dir.x, dir.y, dir.z, node_data.get("body_type", "Earth"))
 			var world_pos_from_center = dir * (node_data.planet_radius_m + h * node_data.max_height_m)
 			verts.append(world_pos_from_center - (node_data.center_dir * node_data.planet_radius_m))
 			

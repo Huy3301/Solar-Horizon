@@ -34,6 +34,7 @@ FactionSystem="*res://game/gameplay/faction_system.gd"
 QualityGovernor="*res://game/autoload/quality_governor.gd"
 AccessibilityManager="*res://game/autoload/accessibility_manager.gd"
 HapticsManager="*res://game/autoload/haptics_manager.gd"
+OriginService="*res://game/core/origin_service.gd"
 
 [display]
 

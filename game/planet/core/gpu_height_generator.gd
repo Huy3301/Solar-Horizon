@@ -33,7 +33,7 @@ func begin_frame():
 func can_dispatch() -> bool:
 	return is_available and current_dispatches < max_dispatches_per_frame
 
-func generate_height_map(face_index: int, patch_offset: Vector2, patch_scale: float, res: int) -> RID:
+func generate_height_map(face_index: int, patch_offset: Vector2, patch_scale: float, res: int, body_type: int = 0) -> RID:
 	if not can_dispatch():
 		return RID()
 		
@@ -52,15 +52,15 @@ func generate_height_map(face_index: int, patch_offset: Vector2, patch_scale: fl
 	uniform.add_id(tex)
 	var uniform_set = rd.uniform_set_create([uniform], shader, 0)
 	
-	# push constants: vec2 offset, float scale, int face_index, int res
-	# std430 alignment: vec2 (8b), float (4b), int (4b), int (4b) -> total 20 bytes. Let's pad to 24 for 16-byte alignment or just use 32.
+	# push constants: vec2 offset (8b), float scale (4b), int face_index (4b), int res (4b), int body_type (4b) -> 24 bytes
 	var pc = PackedByteArray()
-	pc.resize(20)
+	pc.resize(24)
 	pc.encode_float(0, patch_offset.x)
 	pc.encode_float(4, patch_offset.y)
 	pc.encode_float(8, patch_scale)
 	pc.encode_s32(12, face_index)
 	pc.encode_s32(16, res)
+	pc.encode_s32(20, body_type)
 
 	
 	var compute_list = rd.compute_list_begin()

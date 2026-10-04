@@ -10,6 +10,7 @@ layout(push_constant, std430) uniform Params {
     float patch_scale; // size of the patch in 0..1 space
     int face_index;
     int res; // resolution
+    int body_type; // 0 = Earth, 1 = Moon
 } params;
 
 // Exact same noise as CPU
@@ -28,13 +29,13 @@ float get_noise_3d(vec3 p) {
     vec3 u = f * f * (3.0 - 2.0 * f);
     
     float n000 = hash33(i).x;
-    float n100 = hash33(i + vec3(1,0,0)).x;
-    float n010 = hash33(i + vec3(0,1,0)).x;
-    float n110 = hash33(i + vec3(1,1,0)).x;
-    float n001 = hash33(i + vec3(0,0,1)).x;
-    float n101 = hash33(i + vec3(1,0,1)).x;
-    float n011 = hash33(i + vec3(0,1,1)).x;
-    float n111 = hash33(i + vec3(1,1,1)).x;
+    float n100 = hash33(i + vec3(1.0, 0.0, 0.0)).x;
+    float n010 = hash33(i + vec3(0.0, 1.0, 0.0)).x;
+    float n110 = hash33(i + vec3(1.0, 1.0, 0.0)).x;
+    float n001 = hash33(i + vec3(0.0, 0.0, 1.0)).x;
+    float n101 = hash33(i + vec3(1.0, 0.0, 1.0)).x;
+    float n011 = hash33(i + vec3(0.0, 1.0, 1.0)).x;
+    float n111 = hash33(i + vec3(1.0, 1.0, 1.0)).x;
     
     float nx00 = mix(n000, n100, u.x);
     float nx10 = mix(n010, n110, u.x);
@@ -59,15 +60,43 @@ float fbm(vec3 p, int octaves) {
     return value;
 }
 
-float sample_height(vec3 dir) {
+float crater_noise_3d(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = p - i;
+    float min_dist = 10.0;
+    for (int z = -1; z <= 1; z++) {
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                vec3 cell = vec3(float(x), float(y), float(z));
+                vec3 h = hash33(i + cell);
+                vec3 feature_pt = cell + h * 0.65;
+                float d = length(f - feature_pt);
+                min_dist = min(min_dist, d);
+            }
+        }
+    }
+    float rim = smoothstep(0.52, 0.38, min_dist) * smoothstep(0.22, 0.38, min_dist);
+    float bowl = smoothstep(0.36, 0.0, min_dist);
+    float peak = smoothstep(0.08, 0.0, min_dist) * 0.35;
+    return rim * 1.5 - bowl * 0.85 + peak;
+}
+
+float sample_height(vec3 dir, int body) {
+    if (body == 1) {
+        float highlands = fbm(dir * 1.8, 3) * 0.25;
+        float c_large = crater_noise_3d(dir * 4.8) * 0.38;
+        float c_med = crater_noise_3d(dir * 13.5 + vec3(3.7, 8.2, 5.1)) * 0.22;
+        float c_small = crater_noise_3d(dir * 30.0 + vec3(9.1, 14.5, 2.3)) * 0.10;
+        return clamp(0.35 + highlands + c_large + c_med + c_small, 0.0, 1.0);
+    }
     vec3 warp = vec3(
         fbm(dir + vec3(1.2, 3.4, 5.6), 4),
         fbm(dir + vec3(7.8, 9.0, 1.2), 4),
         fbm(dir + vec3(3.4, 5.6, 7.8), 4)
     );
-    float noise_val = fbm(dir * 2.0 + warp, 6);
+    float noise_val = fbm(dir * 3.2 + warp, 6);
     float ridged = 1.0 - abs(noise_val);
-    return ridged * ridged;
+    return pow(ridged, 2.2);
 }
 
 vec3 get_spherified_dir(int face, vec2 face_uv) {
@@ -99,7 +128,7 @@ void main() {
     vec2 face_uv = params.patch_offset + local_uv * params.patch_scale;
     
     vec3 dir = get_spherified_dir(params.face_index, face_uv);
-    float h = sample_height(dir);
+    float h = sample_height(dir, params.body_type);
     
     imageStore(height_map, id, vec4(h, 0.0, 0.0, 1.0));
 }

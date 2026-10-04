@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://game/universe/main_world.gd" id="1_main_world"]
 [ext_resource type="PackedScene" path="res://game/fx/sky_environment.tscn" id="2_sky_env"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://game/fx/moon_visual.tscn" id="4_moon_vis"]
 [ext_resource type="PackedScene" path="res://scenes/ship.tscn" id="5_ship"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="6_hud"]
+[ext_resource type="Script" path="res://game/planet/planet_runtime.gd" id="7_planet_runtime"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_earth"]
 radius = 637100.0
@@ -28,6 +29,14 @@ directional_shadow_max_distance = 350.0
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -837100, 0)
 radius = 637100.0
 
+[node name="PlanetRuntime" type="Node3D" parent="EarthGlobe"]
+script = ExtResource("7_planet_runtime")
+body_name = "Earth"
+planet_radius_m = 637100.0
+max_height_m = 8848.0
+transition_altitude_max = 150000.0
+transition_altitude_min = 120000.0
+
 [node name="SurfaceBody" type="StaticBody3D" parent="EarthGlobe"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="EarthGlobe/SurfaceBody"]
@@ -36,6 +45,14 @@ shape = SubResource("SphereShape3D_earth")
 [node name="MoonGlobe" parent="." instance=ExtResource("4_moon_vis")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3844000)
 radius = 173740.0
+
+[node name="PlanetRuntime" type="Node3D" parent="MoonGlobe"]
+script = ExtResource("7_planet_runtime")
+body_name = "Moon"
+planet_radius_m = 173740.0
+max_height_m = 10700.0
+transition_altitude_max = 50000.0
+transition_altitude_min = 35000.0
 
 [node name="SurfaceBody" type="StaticBody3D" parent="MoonGlobe"]
 

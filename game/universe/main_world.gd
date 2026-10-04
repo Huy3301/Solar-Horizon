@@ -14,6 +14,8 @@ class_name MainWorld extends Node3D
 @onready var earth_globe: Node3D = get_node_or_null("EarthGlobe")
 @onready var moon_globe: Node3D = get_node_or_null("MoonGlobe")
 @onready var ship: RigidBody3D = get_node_or_null("Ship")
+@onready var earth_planet_runtime: PlanetRuntime = get_node_or_null("EarthGlobe/PlanetRuntime")
+@onready var moon_planet_runtime: PlanetRuntime = get_node_or_null("MoonGlobe/PlanetRuntime")
 
 @onready var earth_surface_mesh: MeshInstance3D = get_node_or_null("EarthGlobe/Surface")
 @onready var earth_clouds_mesh: MeshInstance3D = get_node_or_null("EarthGlobe/Clouds")
@@ -60,6 +62,12 @@ func _ready() -> void:
 			ship.linear_velocity = Vector3(0.0, 0.0, -v_circ)
 			origin_svc.register(ship)
 			origin_svc.set_focus_node(ship)
+			
+	if ship:
+		if earth_planet_runtime:
+			earth_planet_runtime.target_node = ship
+		if moon_planet_runtime:
+			moon_planet_runtime.target_node = ship
 			
 	_update_celestial_positions(sim_time)
 	_update_sun_and_shaders(sim_time, earth_pos)

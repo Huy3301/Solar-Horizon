@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/item_def.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"he3"
+display_name = "Helium-3"
+description = "Rare isotope embedded in lunar regolith; clean aneutronic fusion fuel."
+stack_max = 50
+mass = 0.2
+category = "mineral"

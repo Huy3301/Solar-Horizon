@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/item_def.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"carbon"
+display_name = "Carbon"
+description = "Dense carbonaceous deposits used in composite structures and filters."
+stack_max = 50
+mass = 1.0
+category = "mineral"

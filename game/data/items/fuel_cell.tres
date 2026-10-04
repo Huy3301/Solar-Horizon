@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://game/data/item_def.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = &"fuel_cell"
+display_name = "Fuel Cell"
+description = "High energy-density chemical propellants for thruster burns."
+stack_max = 20
+mass = 4.0
+category = "consumable"

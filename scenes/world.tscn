@@ -1,3 +1,4 @@
+[ext_resource type="Script" path="res://game/core/origin_service.gd" id="origin_script"]
 [gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/earth_environment.gd" id="1_env"]
@@ -55,6 +56,9 @@ rings = 64
 [node name="World" type="Node3D"]
 script = ExtResource("1_env")
 
+[node name="OriginService" type="Node" parent="." groups=["origin_service"]]
+script = ExtResource("origin_script")
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_leo")
 
@@ -89,3 +93,4 @@ linear_velocity = Vector3(0, 0, -681.7)
 
 [node name="HUD" parent="." instance=ExtResource("7_hud")]
 ship_path = NodePath("../Ship")
+

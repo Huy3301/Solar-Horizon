@@ -36,10 +36,8 @@ func _ready() -> void:
 	_update_sun_and_shaders()
 	
 	# Integrate with Phase 1 Double-Precision core (WP3)
-	if get_tree().get_nodes_in_group("origin_service").is_empty():
-		var origin_svc = OriginService.new()
-		origin_svc.add_to_group("origin_service")
-		add_child(origin_svc)
+	var origin_svc = get_tree().get_first_node_in_group("origin_service")
+	if origin_svc:
 		# Set the origin to exactly Earth's position + Earth radius (637100) + 50000m (EarthGlobe legacy offset)
 		var sim_time = 0.0
 		if Engine.has_singleton("SimulationClock"):

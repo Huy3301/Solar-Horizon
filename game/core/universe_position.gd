@@ -8,7 +8,7 @@ var offset: DVec3 = DVec3.zero()
 func _init(_sector: Vector3i = Vector3i.ZERO, _offset: DVec3 = null) -> void:
 	sector = _sector
 	if _offset != null:
-		offset = _offset
+		offset = DVec3.new(_offset.x, _offset.y, _offset.z)
 	else:
 		offset = DVec3.zero()
 	normalize()

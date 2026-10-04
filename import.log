@@ -20,6 +20,7 @@ WARNING: GPU heights unavailable (no RenderingDevice). Falling back to CPU/analy
        [3] _init (res://tests/run_tests.gd:28)
 PASS: res://tests/planet/test_planet_streaming.gd::test_rapid_camera_movement
 PASS: res://tests/smoke/test_main_scene_loads.gd::test_main_scene_loads
+PASS: res://tests/smoke/test_main_scene_loads.gd::test_input_map_actions
 PASS: res://tests/universe/test_universe.gd::test_kepler_solver
 PASS: res://tests/universe/test_universe.gd::test_round_trip
 PASS: res://tests/universe/test_universe.gd::test_circular_orbit_period
@@ -29,7 +30,7 @@ PASS: res://tests/universe/test_universe.gd::test_dominant_body
 PASS: res://tests/universe/test_universe.gd::test_shim_solar_system_data
 PASS: res://tests/universe/test_universe.gd::test_old_calculate_orbit
 ---
-Tests: 20 passed / 20 total
+Tests: 21 passed / 21 total
 WARNING: 3 ObjectDB instances were leaked at exit (run with `--verbose` for details).
    at: cleanup (core/object/object.cpp:2536)
 ERROR: 1 resources still in use at exit (run with --verbose for details).

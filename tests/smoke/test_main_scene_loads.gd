@@ -22,3 +22,16 @@ func test_main_scene_loads() -> void:
 			assert_true(sun != null, "SunLight node exists in main scene")
 			
 			scene_instance.free()
+
+func test_input_map_actions() -> void:
+	# Ensure essential input map actions exist
+	assert_true(InputMap.has_action("interact"), "InputMap contains 'interact'")
+	assert_true(InputMap.has_action("scan"), "InputMap contains 'scan'")
+	assert_true(InputMap.has_action("visor"), "InputMap contains 'visor'")
+	assert_true(InputMap.has_action("jetpack"), "InputMap contains 'jetpack'")
+	
+	# Verify distinct actions
+	assert_true(InputMap.action_get_events("interact").size() > 0, "interact has bound events")
+	assert_true(InputMap.action_get_events("scan").size() > 0, "scan has bound events")
+	assert_true(InputMap.action_get_events("visor").size() > 0, "visor has bound events")
+	assert_true(InputMap.action_get_events("jetpack").size() > 0, "jetpack has bound events")

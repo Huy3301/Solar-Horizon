@@ -41,3 +41,8 @@ action = "interact"
 position = Vector2(1600, 950)
 scale = Vector2(2, 2)
 action = "scan"
+
+[node name="VisorButton" type="TouchScreenButton" parent="."]
+position = Vector2(1450, 950)
+scale = Vector2(2, 2)
+action = "visor"

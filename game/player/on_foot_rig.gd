@@ -53,13 +53,14 @@ func _physics_process(delta: float) -> void:
 
 	# Handle Jetpack
 	_is_jetpacking = false
-	if Input.is_action_pressed("jump") and not is_on_floor() and _jetpack_fuel > 0:
+	var jetpack_active = (Input.is_action_pressed("jetpack") or Input.is_action_pressed("jump")) and not is_on_floor()
+	if jetpack_active and _jetpack_fuel > 0:
 		_is_jetpacking = true
 		velocity.y += JETPACK_FORCE * delta
 		_jetpack_fuel -= JETPACK_DRAIN_RATE * delta
 	
 	# Recharge Jetpack
-	if is_on_floor() and not Input.is_action_pressed("jump"):
+	if is_on_floor() and not Input.is_action_pressed("jump") and not Input.is_action_pressed("jetpack"):
 		_jetpack_fuel = move_toward(_jetpack_fuel, JETPACK_MAX_FUEL, JETPACK_RECHARGE_RATE * delta)
 
 	# Handle Jump.

@@ -19,8 +19,8 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("scan") and not _is_scanning:
 		_start_scan()
-	elif event.is_action_pressed("interact"):
-		# Toggle visor mode placeholder
+	elif event.is_action_pressed("visor"):
+		# Toggle visor mode
 		_visor_active = not _visor_active
 
 func _process(delta: float) -> void:

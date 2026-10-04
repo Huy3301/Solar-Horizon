@@ -1,37 +1,94 @@
 extends Node3D
 class_name CameraController
 
-## Dual-mode Chase and Cockpit camera controller for the exploration vessel.
-## Supports dynamic speed FOV expansion, vibration dampening, and mouse/touch orbit.
+## Multi-mode Camera Controller: Cockpit (1st-person), Chase (3rd-person), and Free (orbit/free-look).
+## Supports dynamic speed FOV expansion, trauma-based camera shake, and mouse/touch/gamepad controls.
 
 enum CameraMode {
-	CHASE_THIRD_PERSON,
-	COCKPIT_FIRST_PERSON,
-	ORBIT_INSPECTION
+	COCKPIT = 0,
+	CHASE = 1,
+	FREE = 2,
+	# Backward-compatible aliases
+	COCKPIT_FIRST_PERSON = 0,
+	CHASE_THIRD_PERSON = 1,
+	ORBIT_INSPECTION = 2
 }
 
-@export var current_mode: CameraMode = CameraMode.CHASE_THIRD_PERSON
+@export var current_mode: CameraMode = CameraMode.CHASE
 @export var target_node_path: NodePath
 @export var chase_distance: float = 28.0
 @export var chase_height: float = 7.0
 @export var chase_smooth_speed: float = 8.0
 @export var base_fov: float = 72.0
 @export var max_fov: float = 90.0
+@export var fov_speed_threshold: float = 8000.0
+@export var cockpit_offset: Vector3 = Vector3(0.0, 1.2, -2.6)
+@export var trauma_decay: float = 1.2
+@export var max_shake_offset: Vector3 = Vector3(0.25, 0.25, 0.1)
+@export var max_shake_roll_deg: float = 2.0
 
-@onready var camera: Camera3D = $Camera3D
+@onready var camera: Camera3D = get_node_or_null("Camera3D")
 
 var target_ship: RigidBody3D
+var target_node: Node3D
 var orbit_yaw: float = 0.0
 var orbit_pitch: float = -12.0
 var is_touch_dragging: bool = false
 var touch_start_pos: Vector2 = Vector2.ZERO
 
+var trauma: float = 0.0
+var _shake_time: float = 0.0
+
 func _ready() -> void:
 	set_as_top_level(true)
+	_ensure_camera()
+	_resolve_target()
+
+func _ensure_camera() -> void:
+	if not camera:
+		camera = get_node_or_null("Camera3D")
+	if not camera:
+		for child in get_children():
+			if child is Camera3D:
+				camera = child
+				break
+	if not camera:
+		camera = Camera3D.new()
+		camera.name = "Camera3D"
+		add_child(camera)
+
+func _resolve_target() -> void:
 	if not target_node_path.is_empty():
-		target_ship = get_node(target_node_path)
-	elif get_parent() is RigidBody3D:
-		target_ship = get_parent()
+		var node = get_node_or_null(target_node_path)
+		if node is Node3D:
+			set_target(node)
+	elif get_parent() is Node3D and get_parent() != get_tree().root:
+		set_target(get_parent() as Node3D)
+
+func set_target(new_target: Node3D) -> void:
+	target_node = new_target
+	if new_target is RigidBody3D:
+		target_ship = new_target as RigidBody3D
+	else:
+		target_ship = null
+
+func get_target_velocity() -> Vector3:
+	if target_ship:
+		return target_ship.linear_velocity
+	elif target_node and "velocity" in target_node:
+		return target_node.velocity
+	elif target_node and "linear_velocity" in target_node:
+		return target_node.linear_velocity
+	return Vector3.ZERO
+
+func add_trauma(amount: float) -> void:
+	trauma = clamp(trauma + amount, 0.0, 1.0)
+
+func add_shake(amount: float) -> void:
+	add_trauma(amount)
+
+func get_trauma() -> float:
+	return trauma
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_camera"):
@@ -39,43 +96,60 @@ func _input(event: InputEvent) -> void:
 		
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		orbit_yaw -= event.relative.x * 0.2
-		orbit_pitch = clamp(orbit_pitch - event.relative.y * 0.2, -60.0, 70.0)
+		orbit_pitch = clamp(orbit_pitch - event.relative.y * 0.2, -80.0, 80.0)
 	elif event is InputEventScreenDrag:
 		orbit_yaw -= event.relative.x * 0.3
-		orbit_pitch = clamp(orbit_pitch - event.relative.y * 0.3, -60.0, 70.0)
+		orbit_pitch = clamp(orbit_pitch - event.relative.y * 0.3, -80.0, 80.0)
 
 func _physics_process(delta: float) -> void:
-	if not target_ship or not camera:
+	_ensure_camera()
+	if not target_node and target_ship:
+		target_node = target_ship
+	if not target_node or not camera:
 		return
 		
+	_handle_orbit_input(delta)
+	
 	match current_mode:
-		CameraMode.CHASE_THIRD_PERSON:
-			_process_chase_camera(delta)
-		CameraMode.COCKPIT_FIRST_PERSON:
+		CameraMode.COCKPIT:
 			_process_cockpit_camera(delta)
-		CameraMode.ORBIT_INSPECTION:
-			_process_orbit_camera(delta)
+		CameraMode.CHASE:
+			_process_chase_camera(delta)
+		CameraMode.FREE:
+			_process_free_camera(delta)
 			
 	_update_dynamic_fov(delta)
+	_apply_camera_shake(delta)
+
+func _handle_orbit_input(delta: float) -> void:
+	if current_mode == CameraMode.FREE:
+		var look_x = Input.get_axis("look_left", "look_right")
+		var look_y = Input.get_axis("look_up", "look_down")
+		if abs(look_x) > 0.05 or abs(look_y) > 0.05:
+			orbit_yaw -= look_x * 90.0 * delta
+			orbit_pitch = clamp(orbit_pitch - look_y * 90.0 * delta, -80.0, 80.0)
 
 func _process_chase_camera(delta: float) -> void:
-	var ship_transform: Transform3D = target_ship.global_transform
-	var forward: Vector3 = -ship_transform.basis.z.normalized()
-	var up: Vector3 = ship_transform.basis.y.normalized()
+	var target_transform: Transform3D = target_node.global_transform
+	var forward: Vector3 = -target_transform.basis.z.normalized()
+	var up: Vector3 = target_transform.basis.y.normalized()
 	
-	var desired_pos: Vector3 = target_ship.global_position - forward * chase_distance + up * chase_height
+	var desired_pos: Vector3 = target_node.global_position - forward * chase_distance + up * chase_height
 	global_position = global_position.lerp(desired_pos, chase_smooth_speed * delta)
 	
-	var look_target: Vector3 = target_ship.global_position + target_ship.linear_velocity * 0.02
-	camera.look_at(look_target, up)
+	var vel = get_target_velocity()
+	var look_target: Vector3 = target_node.global_position + vel * 0.02
+	if global_position.distance_to(look_target) > 0.01:
+		camera.look_at(look_target, up)
 
 func _process_cockpit_camera(_delta: float) -> void:
-	var ship_transform: Transform3D = target_ship.global_transform
-	var cockpit_offset: Vector3 = ship_transform.basis * Vector3(0.0, 1.2, -2.6)
-	global_position = target_ship.global_position + cockpit_offset
-	global_transform.basis = ship_transform.basis
+	var target_transform: Transform3D = target_node.global_transform
+	var offset: Vector3 = target_transform.basis * cockpit_offset
+	global_position = target_node.global_position + offset
+	global_transform.basis = target_transform.basis
+	camera.transform = Transform3D.IDENTITY
 
-func _process_orbit_camera(delta: float) -> void:
+func _process_free_camera(delta: float) -> void:
 	var yaw_rad: float = deg_to_rad(orbit_yaw)
 	var pitch_rad: float = deg_to_rad(orbit_pitch)
 	
@@ -85,23 +159,60 @@ func _process_orbit_camera(delta: float) -> void:
 		cos(yaw_rad) * cos(pitch_rad)
 	) * chase_distance
 	
-	var desired_pos: Vector3 = target_ship.global_position + offset
+	var desired_pos: Vector3 = target_node.global_position + offset
 	global_position = global_position.lerp(desired_pos, chase_smooth_speed * delta)
-	camera.look_at(target_ship.global_position, target_ship.global_transform.basis.y.normalized())
+	var up_vec: Vector3 = target_node.global_transform.basis.y.normalized()
+	if abs(up_vec.dot(Vector3.UP)) < 0.99:
+		camera.look_at(target_node.global_position, up_vec)
+	else:
+		camera.look_at(target_node.global_position, Vector3.UP)
 
 func _update_dynamic_fov(delta: float) -> void:
-	if not target_ship:
+	_ensure_camera()
+	if not camera:
 		return
-	var speed: float = target_ship.linear_velocity.length()
-	var fov_factor: float = clamp(speed / 8000.0, 0.0, 1.0)
+	var speed: float = get_target_velocity().length()
+	var fov_factor: float = clamp(speed / fov_speed_threshold, 0.0, 1.0)
 	var target_fov: float = lerp(base_fov, max_fov, fov_factor)
-	camera.fov = lerp(camera.fov, target_fov, 4.0 * delta)
+	var weight: float = clamp(4.0 * delta, 0.0, 1.0)
+	camera.fov = lerp(camera.fov, target_fov, weight)
+
+func _apply_camera_shake(delta: float) -> void:
+	_ensure_camera()
+	if not camera:
+		return
+	if trauma <= 0.0:
+		return
+		
+	_shake_time += delta * 25.0
+	var shake_val = trauma * trauma
+	var offset_x = sin(_shake_time * 1.1) * max_shake_offset.x * shake_val
+	var offset_y = cos(_shake_time * 1.3) * max_shake_offset.y * shake_val
+	var offset_z = sin(_shake_time * 0.9) * max_shake_offset.z * shake_val
+	var roll = sin(_shake_time * 1.5) * deg_to_rad(max_shake_roll_deg) * shake_val
+	
+	if current_mode == CameraMode.COCKPIT:
+		camera.position = Vector3(offset_x, offset_y, offset_z)
+		camera.rotation.z = roll
+	else:
+		camera.position = Vector3(offset_x, offset_y, offset_z)
+	
+	trauma = max(0.0, trauma - trauma_decay * delta)
+	if trauma == 0.0:
+		camera.position = Vector3.ZERO
+		camera.rotation.z = 0.0
 
 func _cycle_camera_mode() -> void:
 	match current_mode:
-		CameraMode.CHASE_THIRD_PERSON:
-			current_mode = CameraMode.COCKPIT_FIRST_PERSON
-		CameraMode.COCKPIT_FIRST_PERSON:
-			current_mode = CameraMode.ORBIT_INSPECTION
-		CameraMode.ORBIT_INSPECTION:
-			current_mode = CameraMode.CHASE_THIRD_PERSON
+		CameraMode.COCKPIT:
+			set_camera_mode(CameraMode.CHASE)
+		CameraMode.CHASE:
+			set_camera_mode(CameraMode.FREE)
+		CameraMode.FREE:
+			set_camera_mode(CameraMode.COCKPIT)
+
+func set_camera_mode(new_mode: CameraMode) -> void:
+	current_mode = new_mode
+	if camera:
+		camera.position = Vector3.ZERO
+		camera.rotation = Vector3.ZERO

@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/fx/moon_visual.gd" id="1_vis"]
+[ext_resource type="Material" path="res://assets/materials/lunar_surface_mat.tres" id="2_lunar"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_moon"]
+radius = 173740.0
+height = 347480.0
+radial_segments = 128
+rings = 64
+
+[node name="MoonVisual" type="Node3D"]
+script = ExtResource("1_vis")
+surface_material = ExtResource("2_lunar")
+
+[node name="Surface" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_moon")
+material_override = ExtResource("2_lunar")

@@ -1,13 +1,16 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-// Photorealistic Earth planetary surface shader for Low Earth Orbit (LEO)
+// Photorealistic Earth planetary surface shader for Low Earth Orbit (LEO) and surface views
 // Features:
 // 1. Physically-based Rayleigh atmospheric aerial perspective & terminator extinction
 // 2. Anisotropic ocean solar specular glint & coastal turquoise bathymetry
 // 3. Dynamic cloud shadows cast onto continents and oceans
 // 4. Procedural multi-scale geological relief detail for low-orbit flyovers
-// 5. High-dynamic range sodium/LED nocturnal city lights with atmospheric diffusion
+// 5. High-dynamic range nocturnal city lights with atmospheric diffusion
+// 6. Quality tier support (0 = Mobile / Low, 1 = Desktop / High)
+
+uniform int quality_tier : hint_range(0, 1) = 1;
 
 uniform sampler2D albedo_map : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D normal_map : hint_normal, filter_linear_mipmap, repeat_enable;
@@ -62,12 +65,14 @@ void fragment() {
 	vec3 L = normalize(sun_direction);
 	vec3 V = normalize(CAMERA_POSITION_WORLD - v_world_pos);
 	
-	// Micro-relief on land for crisp detail during close approaches
-	if (is_water < 0.5) {
-		float n1 = micro_noise(surface_uv * 1800.0);
-		float n2 = micro_noise(surface_uv * 4200.0) * 0.5;
-		vec2 micro_grad = vec2(n1 - 0.5, n2 - 0.25) * 0.35;
-		normal_sample.xy += micro_grad * (1.0 - is_water);
+	if (quality_tier == 1) {
+		// Micro-relief on land for crisp detail during close approaches (Desktop)
+		if (is_water < 0.5) {
+			float n1 = micro_noise(surface_uv * 1800.0);
+			float n2 = micro_noise(surface_uv * 4200.0) * 0.5;
+			vec2 micro_grad = vec2(n1 - 0.5, n2 - 0.25) * 0.35;
+			normal_sample.xy += micro_grad * (1.0 - is_water);
+		}
 	}
 	
 	NORMAL = normalize(mix(NORMAL, NORMAL + normal_sample * 0.5, 1.0 - is_water * 0.85));
@@ -89,10 +94,9 @@ void fragment() {
 	float cloud_shadow_raw = texture(cloud_map, cloud_uv - shadow_offset).a;
 	float cloud_shadow = smoothstep(0.15, 0.85, cloud_shadow_raw) * 0.72 * day_factor;
 	
-	// Ocean bathymetry & shallow coastal water enhancement (e.g. Gulf St Vincent / Spencer Gulf)
+	// Ocean bathymetry & shallow coastal water enhancement
 	vec3 surface_rgb = base_color.rgb;
 	if (is_water > 0.4) {
-		// Deep ocean vs coastal shallow shelf
 		vec3 deep_blue = vec3(0.015, 0.065, 0.18);
 		vec3 shallow_turquoise = vec3(0.03, 0.28, 0.42);
 		surface_rgb = mix(deep_blue, shallow_turquoise, clamp(base_color.g * 2.2, 0.0, 0.75));
@@ -125,7 +129,7 @@ void fragment() {
 	SPECULAR = mix(0.12, 0.98, is_water);
 	ALBEDO = surface_rgb;
 	
-	// City night lights (Adelaide, Sydney, Melbourne, etc.) with atmospheric diffusion
+	// City night lights with atmospheric diffusion
 	vec3 night_glow = lights_sample * night_lights_tint * night_lights_intensity * night_factor;
 	float city_rim = pow(1.0 - n_dot_v, 2.5);
 	vec3 atmo_night_diffusion = vec3(0.08, 0.18, 0.35) * city_rim * 0.4 * night_factor;

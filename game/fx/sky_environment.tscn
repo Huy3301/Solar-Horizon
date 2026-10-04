@@ -1,0 +1,46 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://game/fx/sky_environment.gd" id="1_sky_env"]
+[ext_resource type="Material" path="res://assets/materials/space_sky_mat.tres" id="2_sky_mat"]
+[ext_resource type="Script" path="res://game/fx/sun.gd" id="3_sun_ctrl"]
+[ext_resource type="Material" path="res://assets/materials/sun_glare_mat.tres" id="4_glare_mat"]
+
+[sub_resource type="Sky" id="Sky_deep_space"]
+sky_material = ExtResource("2_sky_mat")
+
+[sub_resource type="Environment" id="Environment_space"]
+background_mode = 2
+sky = SubResource("Sky_deep_space")
+ambient_light_source = 2
+ambient_light_color = Color(0.04, 0.07, 0.12, 1)
+tonemap_mode = 3
+tonemap_exposure = 1.1
+glow_enabled = true
+glow_intensity = 0.85
+glow_bloom = 0.15
+glow_blend_mode = 1
+
+[sub_resource type="QuadMesh" id="QuadMesh_glare"]
+size = Vector2(1200, 1200)
+
+[node name="SkyEnvironment" type="Node3D"]
+script = ExtResource("1_sky_env")
+sky_material = ExtResource("2_sky_mat")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_space")
+
+[node name="Sun" type="Node3D" parent="."]
+script = ExtResource("3_sun_ctrl")
+flare_material = ExtResource("4_glare_mat")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Sun"]
+transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 10000, 0)
+light_color = Color(1, 0.98, 0.92, 1)
+light_energy = 2.4
+shadow_enabled = false
+directional_shadow_max_distance = 15000.0
+
+[node name="SunGlareBillboard" type="MeshInstance3D" parent="Sun"]
+mesh = SubResource("QuadMesh_glare")
+material_override = ExtResource("4_glare_mat")

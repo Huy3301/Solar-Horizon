@@ -5,6 +5,7 @@
 [resource]
 resource_name = "LunarSurfaceMaterial"
 shader = ExtResource("1_lunar")
+shader_parameter/quality_tier = 1
 shader_parameter/highland_albedo = Color(0.82, 0.84, 0.86, 1)
 shader_parameter/mare_basalt_albedo = Color(0.28, 0.29, 0.31, 1)
 shader_parameter/ejecta_ray_color = Color(0.92, 0.94, 0.97, 1)

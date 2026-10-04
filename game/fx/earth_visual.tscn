@@ -1,0 +1,53 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://game/fx/earth_visual.gd" id="1_vis"]
+[ext_resource type="Material" path="res://assets/materials/earth_surface_mat.tres" id="2_surf"]
+[ext_resource type="Material" path="res://assets/materials/earth_clouds_mat.tres" id="3_cld"]
+[ext_resource type="Material" path="res://assets/materials/earth_atmosphere_mat.tres" id="4_atmo"]
+[ext_resource type="Script" path="res://game/planet/atmosphere_system.gd" id="5_atmo_sys"]
+[ext_resource type="Script" path="res://game/planet/weather_system.gd" id="6_weath_sys"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_surface"]
+radius = 637100.0
+height = 1274200.0
+radial_segments = 128
+rings = 64
+
+[sub_resource type="SphereMesh" id="SphereMesh_clouds"]
+radius = 638600.0
+height = 1277200.0
+radial_segments = 128
+rings = 64
+
+[sub_resource type="SphereMesh" id="SphereMesh_atmosphere"]
+radius = 646100.0
+height = 1292200.0
+radial_segments = 128
+rings = 64
+
+[node name="EarthVisual" type="Node3D"]
+script = ExtResource("1_vis")
+surface_material = ExtResource("2_surf")
+clouds_material = ExtResource("3_cld")
+atmosphere_material = ExtResource("4_atmo")
+
+[node name="Surface" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_surface")
+material_override = ExtResource("2_surf")
+
+[node name="Clouds" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_clouds")
+material_override = ExtResource("3_cld")
+
+[node name="Atmosphere" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_atmosphere")
+material_override = ExtResource("4_atmo")
+
+[node name="AtmosphereSystem" type="Node3D" parent="."]
+script = ExtResource("5_atmo_sys")
+atmosphere_material = ExtResource("4_atmo")
+surface_material = ExtResource("2_surf")
+
+[node name="WeatherSystem" type="Node3D" parent="."]
+script = ExtResource("6_weath_sys")
+cloud_material = ExtResource("3_cld")

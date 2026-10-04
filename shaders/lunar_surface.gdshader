@@ -97,15 +97,13 @@ void fragment() {
 	
 	// Hapke opposition surge (retroreflection at zero phase angle)
 	vec3 V = normalize(CAMERA_POSITION_WORLD - v_world_pos);
-	vec3 L = normalize(sun_direction);
-	float cos_phase = clamp(dot(V, L), 0.0, 1.0);
-	float opposition_surge = pow(cos_phase, 28.0) * opposition_surge_intensity;
-	
-	float n_dot_l = max(0.0, dot(perturbed_N, L));
-	vec3 diffuse = base_color * (n_dot_l + opposition_surge * 0.4);
-	
-	ALBEDO = diffuse;
+	// We don't have true sun L here unless updated by script, but we can approximate or use emission
+	// Better yet, just use base_color for ALBEDO and let Godot handle n_dot_l
+	ALBEDO = base_color;
 	ROUGHNESS = 0.94;
 	METALLIC = 0.02;
 	SPECULAR = 0.04;
+	
+	// Apply Normal map perturbation
+	NORMAL = perturbed_N;
 }

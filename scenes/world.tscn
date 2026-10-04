@@ -25,6 +25,9 @@ glow_intensity = 0.85
 glow_bloom = 0.15
 glow_blend_mode = 1
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_earth"]
+radius = 50000.0
+
 [sub_resource type="SphereMesh" id="SphereMesh_earth_surface"]
 material = ExtResource("3_surf_mat")
 radius = 50000.0
@@ -70,8 +73,11 @@ shadow_enabled = false
 directional_shadow_max_distance = 15000.0
 
 [node name="EarthGlobe" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -50000, 0)
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, -50000, 0)
 
+[node name="SurfaceBody" type="StaticBody3D" parent="EarthGlobe"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="EarthGlobe/SurfaceBody"]
+shape = SubResource("SphereShape3D_earth")
 [node name="Surface" type="MeshInstance3D" parent="EarthGlobe"]
 mesh = SubResource("SphereMesh_earth_surface")
 
@@ -93,6 +99,8 @@ linear_velocity = Vector3(0, 0, -681.7)
 
 [node name="HUD" parent="." instance=ExtResource("7_hud")]
 ship_path = NodePath("../Ship")
+
+
 
 
 

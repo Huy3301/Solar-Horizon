@@ -31,7 +31,7 @@ void vertex() {
 
 void fragment() {
 	vec4 cloud_sample = texture(cloud_texture, v_uv);
-	float alpha = clamp(cloud_sample.r * cloud_coverage, 0.0, 1.0);
+	float alpha = clamp(cloud_sample.a * cloud_coverage, 0.0, 1.0);
 	
 	vec3 N = normalize(v_world_normal);
 	vec3 L = normalize(sun_direction);

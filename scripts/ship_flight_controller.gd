@@ -1,6 +1,8 @@
 extends RigidBody3D
 class_name ShipFlightController
 
+const FlightModel = preload("res://game/player/flight_model.gd")
+
 ## High-Fidelity Aerospace Exploration Orbiter Flight Controller (LEO & Entry Model).
 ## Supports orbital vacuum mechanics, Newtonian spherical gravity, Reaction Control System (RCS),
 ## supersonic/hypersonic entry aerodynamics, and main orbital maneuvering engines (OME).
@@ -8,6 +10,7 @@ class_name ShipFlightController
 signal flight_data_updated(telemetry: Dictionary)
 signal landing_gear_toggled(is_down: bool)
 signal landing_state_changed(is_landed: bool, status_message: String)
+signal ship_crashed(reason: String)
 
 @export_group("Orbital Propulsion")
 @export var max_main_thrust: float = 450000.0  # 450 kN twin rocket engines
@@ -31,15 +34,16 @@ signal landing_state_changed(is_landed: bool, status_message: String)
 @export_group("Planetary Environment")
 @export var atmosphere_thickness: float = 12000.0  # Scaled 120km to 12km (at 1/10)
 
-enum FlightModel { ASSISTED, NEWTONIAN }
+enum FlightModelMode { ASSISTED = 0, NEWTONIAN = 1 }
 @export_group("Flight Systems")
-@export var flight_model: FlightModel = FlightModel.ASSISTED
+@export var flight_model: FlightModelMode = FlightModelMode.ASSISTED
 
 var current_throttle: float = 0.0
 var target_throttle: float = 0.0
 var landing_gear_deployed: bool = false
 var brakes_engaged: bool = false
 var is_landed: bool = false
+var is_crashed: bool = false
 var rcs_active: bool = false
 
 var control_pitch: float = 0.0
@@ -70,7 +74,9 @@ func _get_sim_clock() -> Node:
 func _get_universe_pos() -> DVec3:
 	var tree = get_tree()
 	if tree:
-		var origin_svc = tree.get_first_node_in_group("origin_service")
+		var origin_svc = tree.root.get_node_or_null("OriginService") if tree.root else null
+		if origin_svc == null:
+			origin_svc = tree.get_first_node_in_group("origin_service")
 		if origin_svc and origin_svc.has_method("local_to_universe"):
 			var up = origin_svc.local_to_universe(global_position)
 			return up.offset
@@ -79,8 +85,8 @@ func _get_universe_pos() -> DVec3:
 func _ready() -> void:
 	gravity_scale = 0.0
 	linear_damp = 0.0
-	angular_damp = 0.0 # Handled by Assisted flight model
-	max_contacts_reported = 4
+	angular_damp = 0.0
+	max_contacts_reported = 8
 	contact_monitor = true
 	_update_engine_plumes(0.0)
 
@@ -110,6 +116,7 @@ func _physics_process(delta: float) -> void:
 	var planet_up = to_ship.normalized() if r_dist > 1.0 else Vector3.UP
 	var altitude_asl = r_dist - planet_radius
 	
+	# Gravity from dominant body only (B-02 fix)
 	var grav_acc = GravityService.gravity_accel(ship_pos, sim_time)
 	var g_local = grav_acc.length()
 	apply_central_force(grav_acc.to_vector3() * mass)
@@ -118,13 +125,13 @@ func _physics_process(delta: float) -> void:
 	var right_dir: Vector3 = global_transform.basis.x.normalized()
 	var up_dir: Vector3 = global_transform.basis.y.normalized()
 	
-	var thrust_amount: float = current_throttle * max_main_thrust
+	var thrust_amount: float = 0.0 if is_crashed else current_throttle * max_main_thrust
 	var thrust_force: Vector3 = forward_dir * thrust_amount
 	apply_central_force(thrust_force)
 	
 	var non_grav_force = thrust_force
 	
-	if control_vtol > 0.01:
+	if control_vtol > 0.01 and not is_crashed:
 		rcs_active = true
 		var vtol_thrust = up_dir * (control_vtol * max_rcs_thrust)
 		apply_central_force(vtol_thrust)
@@ -134,31 +141,38 @@ func _physics_process(delta: float) -> void:
 		
 	var velocity: Vector3 = linear_velocity
 	var speed: float = velocity.length()
-	var dynamic_pressure: float = 0.0
-	var air_density: float = 0.0
 	
-	if altitude_asl < atmosphere_thickness:
-		var entry_h_norm: float = clamp(altitude_asl / atmosphere_thickness, 0.0, 1.0)
-		air_density = 1.225 * exp(-entry_h_norm * 7.5)
-		dynamic_pressure = 0.5 * air_density * speed * speed
-		
-		var vel_dir: Vector3 = velocity.normalized() if speed > 0.1 else forward_dir
-		var cd: float = zero_lift_drag_cd0 + (0.04 if landing_gear_deployed else 0.0)
-		var drag_force: Vector3 = -vel_dir * (cd * dynamic_pressure * wing_area)
-		apply_central_force(drag_force)
-		non_grav_force += drag_force
-		
-	if is_landed:
-		non_grav_force += planet_up * (mass * g_local)
-		
-	var g_force_val = non_grav_force.length() / (mass * 9.81)
+	# Scale-height atmospheric aerodynamics (B-05 fix)
+	var air_density: float = FlightModel.calculate_air_density(altitude_asl, dom_def, scale_cfg.radius_scale)
+	var vel_dir: Vector3 = velocity.normalized() if speed > 0.1 else forward_dir
+	var aero_data = FlightModel.calculate_aerodynamics(speed, air_density, wing_area, zero_lift_drag_cd0, landing_gear_deployed, vel_dir)
+	var dynamic_pressure: float = aero_data["dynamic_pressure"]
+	var drag_force: Vector3 = aero_data["drag_force"]
+	apply_central_force(drag_force)
+	non_grav_force += drag_force
 	
+	# Real AGL via radar altimeter and gear rays (B-04 fix)
+	var gear_rays: Array = [gear_front_ray, gear_left_ray, gear_right_ray]
+	var altitude_agl: float = FlightModel.calculate_agl(global_position, planet_up, altitude_asl, radar_altimeter_ray, gear_rays)
+	
+	# Attitude controls with inertia scaling (B-05 fix)
 	_apply_attitude_controls(dynamic_pressure)
 	_update_engine_plumes(current_throttle)
-	_evaluate_surface_contact(altitude_asl, speed)
-	_update_telemetry(altitude_asl, speed, dynamic_pressure, air_density, g_local, g_force_val)
+	
+	# Collision-based landing evaluation (B-04 fix)
+	_evaluate_surface_contact(planet_up, altitude_agl)
+	
+	var g_force_val = non_grav_force.length() / (mass * 9.81)
+	_update_telemetry(altitude_asl, altitude_agl, speed, dynamic_pressure, air_density, g_local, g_force_val)
 
 func _handle_inputs(delta: float) -> void:
+	if is_crashed:
+		control_pitch = 0.0
+		control_roll = 0.0
+		control_yaw = 0.0
+		target_throttle = 0.0
+		return
+		
 	control_pitch = Input.get_axis("pitch_down", "pitch_up")
 	control_roll = Input.get_axis("roll_right", "roll_left")
 	control_yaw = Input.get_axis("yaw_right", "yaw_left")
@@ -177,29 +191,47 @@ func _handle_inputs(delta: float) -> void:
 func _update_throttle(delta: float) -> void:
 	current_throttle = move_toward(current_throttle, target_throttle, (1.0 / throttle_spool_rate) * delta)
 
+func _get_moments_of_inertia() -> Vector3:
+	var I = inertia
+	if I.x <= 0.0 or I.y <= 0.0 or I.z <= 0.0:
+		# Box moment of inertia: Ix = m/12*(y^2+z^2), Iy = m/12*(x^2+z^2), Iz = m/12*(x^2+y^2)
+		# Dimensions approx 3.6m x 2.2m x 14.2m
+		I = Vector3(mass * 17.2, mass * 17.8, mass * 1.5)
+	return I
+
 func _apply_attitude_controls(q: float) -> void:
-	if flight_model == FlightModel.ASSISTED:
-		angular_damp = 2.5
-	else:
-		angular_damp = 0.0
+	if is_crashed:
+		return
 		
-	var aero_blend: float = clamp(q / 8000.0, 0.0, 1.0)
-	var p_torque: float = (pitch_torque_max * aero_blend + rcs_rotational_torque) * control_pitch
-	var r_torque: float = (roll_torque_max * aero_blend + rcs_rotational_torque) * control_roll
-	var y_torque: float = (yaw_torque_max * aero_blend + rcs_rotational_torque) * control_yaw
+	var I = _get_moments_of_inertia()
 	
-	var total_torque: Vector3 = (
-		global_transform.basis.x * p_torque +
-		-global_transform.basis.z * r_torque +
-		global_transform.basis.y * y_torque
+	# Maximum angular acceleration authorities (rad/s^2)
+	var max_accel = Vector3(
+		(pitch_torque_max + rcs_rotational_torque) / I.x,
+		(yaw_torque_max + rcs_rotational_torque) / I.y,
+		(roll_torque_max + rcs_rotational_torque) / I.z
 	)
+	
+	var inputs = Vector3(control_pitch, control_yaw, control_roll)
+	var mode = FlightModel.Mode.ASSISTED if flight_model == FlightModelMode.ASSISTED else FlightModel.Mode.NEWTONIAN
+	
+	var total_torque = FlightModel.calculate_attitude_torque(
+		inputs,
+		I,
+		max_accel,
+		q,
+		mode,
+		angular_velocity,
+		global_transform.basis
+	)
+	
 	apply_torque(total_torque)
 
 func _update_engine_plumes(throttle: float) -> void:
 	if not left_plume or not right_plume:
 		return
 		
-	if throttle > 0.01:
+	if throttle > 0.01 and not is_crashed:
 		left_plume.visible = true
 		right_plume.visible = true
 		var plume_len: float = clamp(throttle * 1.6, 0.2, 1.8)
@@ -209,27 +241,42 @@ func _update_engine_plumes(throttle: float) -> void:
 		left_plume.visible = false
 		right_plume.visible = false
 
-func _evaluate_surface_contact(altitude: float, speed: float) -> void:
-	var on_surface: bool = false
-	if gear_front_ray and gear_front_ray.is_colliding():
-		on_surface = true
-	elif altitude <= 1.5:
-		on_surface = true
-		
-	if on_surface:
+func _evaluate_surface_contact(planet_up: Vector3, agl: float) -> void:
+	var contact_count: int = get_contact_count()
+	var gear_colliding: bool = (
+		(gear_front_ray and gear_front_ray.is_colliding()) or
+		(gear_left_ray and gear_left_ray.is_colliding()) or
+		(gear_right_ray and gear_right_ray.is_colliding())
+	)
+	
+	var ship_up: Vector3 = global_transform.basis.y.normalized()
+	var landing_eval = FlightModel.evaluate_landing(
+		contact_count,
+		gear_colliding,
+		linear_velocity,
+		planet_up,
+		ship_up,
+		landing_gear_deployed
+	)
+	
+	var state = landing_eval["state"]
+	if state == FlightModel.LandingState.CRASH:
+		if not is_crashed:
+			is_crashed = true
+			is_landed = false
+			landing_state_changed.emit(false, landing_eval["message"])
+			ship_crashed.emit(landing_eval["message"])
+	elif state == FlightModel.LandingState.TOUCHDOWN:
 		if not is_landed:
 			is_landed = true
-			if speed < 40.0:
-				landing_state_changed.emit(true, "Touchdown confirmed. Ship anchored at base.")
-			else:
-				landing_state_changed.emit(false, "Surface touchdown at high speed.")
+			landing_state_changed.emit(true, landing_eval["message"])
 		if brakes_engaged:
-			var brake_force: Vector3 = -linear_velocity.normalized() * 35000.0
+			var brake_force: Vector3 = -linear_velocity.normalized() * min(linear_velocity.length() * mass * 5.0, 45000.0)
 			apply_central_force(brake_force)
-	else:
-		if is_landed:
+	elif state == FlightModel.LandingState.AIRBORNE:
+		if is_landed and agl > 2.0:
 			is_landed = false
-			landing_state_changed.emit(false, "Vessel orbital departure.")
+			landing_state_changed.emit(false, "Vessel airborne.")
 
 func toggle_landing_gear() -> void:
 	landing_gear_deployed = not landing_gear_deployed
@@ -250,7 +297,7 @@ func set_control_yaw(val: float) -> void:
 func set_vtol_thrust(val: float) -> void:
 	control_vtol = clamp(val, 0.0, 1.0)
 
-func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_local: float, g_force_val: float) -> void:
+func _update_telemetry(alt_asl: float, alt_agl: float, speed: float, q: float, rho: float, g_local: float, g_force_val: float) -> void:
 	var rot: Vector3 = global_transform.basis.get_euler()
 	var pitch_deg: float = rad_to_deg(rot.x)
 	var roll_deg: float = rad_to_deg(rot.z)
@@ -282,7 +329,7 @@ func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_loc
 		"mach": mach,
 		"altitude_asl_m": alt_asl,
 		"altitude_asl_ft": alt_asl * 3.28084,
-		"altitude_agl_m": alt_asl,
+		"altitude_agl_m": alt_agl,
 		"vspeed_ms": vspeed,
 		"pitch_deg": pitch_deg,
 		"roll_deg": roll_deg,
@@ -293,6 +340,7 @@ func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_loc
 		"gear_down": landing_gear_deployed,
 		"brakes": brakes_engaged,
 		"is_landed": is_landed,
+		"is_crashed": is_crashed,
 		"vtol_active": control_vtol > 0.05 or rcs_active,
 		"g_local": g_local,
 		"g_force_val": g_force_val,

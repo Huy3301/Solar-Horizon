@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://c8dfry0kex74y"
+path="res://.godot/imported/terrain_height.glsl-318b6535eda9e4e1fae50a83a0f7ca26.res"
+
+[deps]
+
+source_file="res://game/planet/spike/terrain_height.glsl"
+dest_files=["res://.godot/imported/terrain_height.glsl-318b6535eda9e4e1fae50a83a0f7ca26.res"]
+
+[params]
+

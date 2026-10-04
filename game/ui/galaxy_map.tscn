@@ -1,0 +1,37 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5s2g3d4f5h6"]
+
+[ext_resource type="Script" path="res://game/ui/galaxy_map.gd" id="1_a2b3c"]
+
+[node name="GalaxyMap" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_a2b3c")
+
+[node name="InfoPanel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -250.0
+offset_bottom = 150.0
+grow_horizontal = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="StarNameLabel" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "System Name"
+
+[node name="StarClassLabel" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "Class: M | Planets: 0"

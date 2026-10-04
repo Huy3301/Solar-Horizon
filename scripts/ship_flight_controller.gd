@@ -29,10 +29,11 @@ signal landing_state_changed(is_landed: bool, status_message: String)
 @export var entry_heat_scaling: float = 1.0
 
 @export_group("Planetary Environment")
-@export var earth_center_pos: Vector3 = Vector3(0, -50000, 0)
-@export var earth_surface_radius: float = 50000.0 # Scaled simulation radius
-@export var sea_level_gravity: float = 9.81
-@export var atmosphere_thickness: float = 1200.0  # Atmosphere boundary layer
+@export var atmosphere_thickness: float = 12000.0  # Scaled 120km to 12km (at 1/10)
+
+enum FlightModel { ASSISTED, NEWTONIAN }
+@export_group("Flight Systems")
+@export var flight_model: FlightModel = FlightModel.ASSISTED
 
 var current_throttle: float = 0.0
 var target_throttle: float = 0.0
@@ -55,10 +56,17 @@ var control_vtol: float = 0.0
 
 var telemetry_data: Dictionary = {}
 
+func _get_universe_pos() -> DVec3:
+	var origin_svc = get_tree().get_first_node_in_group("origin_service")
+	if origin_svc and origin_svc.has_method("local_to_universe"):
+		var up = origin_svc.local_to_universe(global_position)
+		return up.offset
+	return DVec3.from_vector3(global_position)
+
 func _ready() -> void:
 	gravity_scale = 0.0
 	linear_damp = 0.0
-	angular_damp = 0.15
+	angular_damp = 0.0 # Handled by Assisted flight model
 	max_contacts_reported = 4
 	contact_monitor = true
 	_update_engine_plumes(0.0)
@@ -67,14 +75,28 @@ func _physics_process(delta: float) -> void:
 	_handle_inputs(delta)
 	_update_throttle(delta)
 	
-	var to_ship: Vector3 = global_position - earth_center_pos
-	var r_dist: float = to_ship.length()
-	var planet_up: Vector3 = to_ship / max(1.0, r_dist)
-	var altitude_asl: float = r_dist - earth_surface_radius
+	var sim_time: float = 0.0
+	if Engine.has_singleton("SimulationClock"):
+		sim_time = SimulationClock.sim_time_s
 	
-	var g_local: float = sea_level_gravity * pow(earth_surface_radius / max(1.0, r_dist), 2.0)
-	var gravity_force: Vector3 = -planet_up * (mass * g_local)
-	apply_central_force(gravity_force)
+	var ship_pos: DVec3 = _get_universe_pos()
+	
+	var dom_id = GravityService.dominant_body(ship_pos, sim_time)
+	var dom_pos = GravityService.body_position(dom_id, sim_time)
+	var dom_def = BodyRegistry.get_body(dom_id)
+	
+	var scale_cfg = GameScale.get_instance()
+	var planet_radius = scale_cfg.scaled_radius(dom_def.radius_m) if dom_def else 637100.0
+	
+	var to_ship_d = ship_pos.sub(dom_pos)
+	var r_dist = to_ship_d.length()
+	var to_ship = to_ship_d.to_vector3()
+	var planet_up = to_ship.normalized() if r_dist > 1.0 else Vector3.UP
+	var altitude_asl = r_dist - planet_radius
+	
+	var grav_acc = GravityService.gravity_accel(ship_pos, sim_time)
+	var g_local = grav_acc.length()
+	apply_central_force(grav_acc.to_vector3() * mass)
 	
 	var forward_dir: Vector3 = -global_transform.basis.z.normalized()
 	var right_dir: Vector3 = global_transform.basis.x.normalized()
@@ -84,9 +106,13 @@ func _physics_process(delta: float) -> void:
 	var thrust_force: Vector3 = forward_dir * thrust_amount
 	apply_central_force(thrust_force)
 	
+	var non_grav_force = thrust_force
+	
 	if control_vtol > 0.01:
 		rcs_active = true
-		apply_central_force(up_dir * (control_vtol * max_rcs_thrust))
+		var vtol_thrust = up_dir * (control_vtol * max_rcs_thrust)
+		apply_central_force(vtol_thrust)
+		non_grav_force += vtol_thrust
 	else:
 		rcs_active = false
 		
@@ -100,15 +126,21 @@ func _physics_process(delta: float) -> void:
 		air_density = 1.225 * exp(-entry_h_norm * 7.5)
 		dynamic_pressure = 0.5 * air_density * speed * speed
 		
-		var vel_dir: Vector3 = velocity.normalized()
+		var vel_dir: Vector3 = velocity.normalized() if speed > 0.1 else forward_dir
 		var cd: float = zero_lift_drag_cd0 + (0.04 if landing_gear_deployed else 0.0)
 		var drag_force: Vector3 = -vel_dir * (cd * dynamic_pressure * wing_area)
 		apply_central_force(drag_force)
+		non_grav_force += drag_force
+		
+	if is_landed:
+		non_grav_force += planet_up * (mass * g_local)
+		
+	var g_force_val = non_grav_force.length() / (mass * 9.81)
 	
 	_apply_attitude_controls(dynamic_pressure)
 	_update_engine_plumes(current_throttle)
 	_evaluate_surface_contact(altitude_asl, speed)
-	_update_telemetry(altitude_asl, speed, dynamic_pressure, air_density, g_local)
+	_update_telemetry(altitude_asl, speed, dynamic_pressure, air_density, g_local, g_force_val)
 
 func _handle_inputs(delta: float) -> void:
 	control_pitch = Input.get_axis("pitch_down", "pitch_up")
@@ -130,6 +162,11 @@ func _update_throttle(delta: float) -> void:
 	current_throttle = move_toward(current_throttle, target_throttle, (1.0 / throttle_spool_rate) * delta)
 
 func _apply_attitude_controls(q: float) -> void:
+	if flight_model == FlightModel.ASSISTED:
+		angular_damp = 2.5
+	else:
+		angular_damp = 0.0
+		
 	var aero_blend: float = clamp(q / 8000.0, 0.0, 1.0)
 	var p_torque: float = (pitch_torque_max * aero_blend + rcs_rotational_torque) * control_pitch
 	var r_torque: float = (roll_torque_max * aero_blend + rcs_rotational_torque) * control_roll
@@ -197,13 +234,28 @@ func set_control_yaw(val: float) -> void:
 func set_vtol_thrust(val: float) -> void:
 	control_vtol = clamp(val, 0.0, 1.0)
 
-func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_local: float) -> void:
+func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_local: float, g_force_val: float) -> void:
 	var rot: Vector3 = global_transform.basis.get_euler()
 	var pitch_deg: float = rad_to_deg(rot.x)
 	var roll_deg: float = rad_to_deg(rot.z)
 	var heading_deg: float = fmod(rad_to_deg(-rot.y) + 360.0, 360.0)
-	var vspeed: float = linear_velocity.dot((global_position - earth_center_pos).normalized())
 	var mach: float = speed / 340.29
+	
+	var sim_time: float = SimulationClock.sim_time_s if Engine.has_singleton("SimulationClock") else 0.0
+	var ship_pos: DVec3 = _get_universe_pos()
+	var dom_id = GravityService.dominant_body(ship_pos, sim_time)
+	var dom_pos = GravityService.body_position(dom_id, sim_time)
+	var to_ship_d = ship_pos.sub(dom_pos)
+	var r_vec = to_ship_d.to_vector3()
+	var planet_up = r_vec.normalized() if r_vec.length() > 1.0 else Vector3.UP
+	
+	var vspeed: float = linear_velocity.dot(planet_up)
+	
+	# Orbit elements
+	var dom_def = BodyRegistry.get_body(dom_id)
+	var mu = GameScale.get_instance().scaled_mu(dom_def.mu_m3_s2, dom_def.radius_m) if dom_def else OrbitalMechanics.DEFAULT_MU
+	var radius = GameScale.get_instance().scaled_radius(dom_def.radius_m) if dom_def else OrbitalMechanics.EARTH_RADIUS
+	var orbit = OrbitalMechanics.calculate_orbit(r_vec, linear_velocity, mu, radius)
 	
 	telemetry_data = {
 		"speed_ms": speed,
@@ -224,7 +276,13 @@ func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_loc
 		"brakes": brakes_engaged,
 		"is_landed": is_landed,
 		"vtol_active": control_vtol > 0.05 or rcs_active,
-		"g_local": g_local
+		"g_local": g_local,
+		"g_force_val": g_force_val,
+		"ap_km": orbit.apoapsis_alt / 1000.0,
+		"pe_km": orbit.periapsis_alt / 1000.0,
+		"eccentricity": orbit.eccentricity,
+		"period_min": orbit.period_seconds / 60.0,
+		"inclination_deg": rad_to_deg(orbit.inclination_rad)
 	}
 	
 	flight_data_updated.emit(telemetry_data)

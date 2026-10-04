@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CelestialBodyDef" format=3]
+
+[ext_resource type="Script" path="res://game/universe/celestial_body_def.gd" id="1_jrd3v"]
+
+[resource]
+script = ExtResource("1_jrd3v")
+id = &"Moon"
+display_name = "Moon"
+parent_id = &"Earth"
+body_type = 2
+mass_kg = 7.342e+22
+mu_m3_s2 = 4904869500000.0
+radius_m = 1737400.0
+rotation_period_s = 2360520.0
+surface_gravity = 1.62
+atmosphere_color = Color(1, 1, 1, 0)
+orbit_line_color = Color(0.85, 0.88, 0.92, 0.75)
+semi_major_axis_m = 384400000.0
+eccentricity = 0.0549
+inclination_deg = 5.145

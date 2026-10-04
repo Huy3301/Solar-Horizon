@@ -1,0 +1,142 @@
+[gd_scene load_steps=2 format=3]
+
+[sub_resource type="GDScript" id="GDScript_6d5k1"]
+script/source = "extends Control
+
+@onready var item_list: ItemList = $MarginContainer/VBoxContainer/ItemList
+@onready var name_input: LineEdit = $MarginContainer/VBoxContainer/HBoxContainer/NameInput
+@onready var rename_btn: Button = $MarginContainer/VBoxContainer/HBoxContainer/RenameBtn
+@onready var upload_btn: Button = $MarginContainer/VBoxContainer/UploadBtn
+@onready var credits_label: Label = $MarginContainer/VBoxContainer/CreditsLabel
+
+var current_discoveries: Array[Dictionary] = []
+
+func _ready() -> void:
+	if not Engine.is_editor_hint():
+		if DiscoverySystemInstance:
+			DiscoverySystemInstance.discovery_added.connect(_on_discovery_added)
+			DiscoverySystemInstance.discovery_uploaded.connect(_on_discovery_uploaded)
+			DiscoverySystemInstance.discovery_renamed.connect(_on_discovery_renamed)
+		
+		if ContractSystemInstance:
+			ContractSystemInstance.credits_earned.connect(_on_credits_earned)
+	
+	_refresh_ui()
+
+# Helpers to get the singletons safely. Assuming they are autoloaded with these exact names.
+var DiscoverySystemInstance: Node:
+	get: return get_node_or_null(\"/root/DiscoverySystem\")
+
+var ContractSystemInstance: Node:
+	get: return get_node_or_null(\"/root/ContractSystem\")
+
+func _refresh_ui() -> void:
+	item_list.clear()
+	current_discoveries.clear()
+	
+	if DiscoverySystemInstance:
+		# Use untyped array temporarily if needed, but get_all_discoveries returns Array[Dictionary]
+		var array_val = DiscoverySystemInstance.get_all_discoveries()
+		for d in array_val:
+			current_discoveries.append(d as Dictionary)
+			var text = \"%s (%s) - %s\" % [d.name, d.type, \"Uploaded\" if d.uploaded else \"Pending\"]
+			item_list.add_item(text)
+			
+	if ContractSystemInstance:
+		credits_label.text = \"Credits: %d\" % ContractSystemInstance.credits
+	else:
+		credits_label.text = \"Credits: 0\"
+
+func _on_discovery_added(discovery: Dictionary) -> void:
+	_refresh_ui()
+
+func _on_discovery_uploaded(id: String) -> void:
+	_refresh_ui()
+
+func _on_discovery_renamed(id: String, new_name: String) -> void:
+	_refresh_ui()
+
+func _on_credits_earned(amount: int) -> void:
+	_refresh_ui()
+
+func _on_item_list_item_selected(index: int) -> void:
+	if index >= 0 and index < current_discoveries.size():
+		var d = current_discoveries[index]
+		name_input.text = d.name
+		name_input.editable = not d.uploaded
+		rename_btn.disabled = d.uploaded
+		upload_btn.disabled = d.uploaded
+
+func _on_rename_btn_pressed() -> void:
+	var sel = item_list.get_selected_items()
+	if sel.size() > 0 and DiscoverySystemInstance:
+		var d = current_discoveries[sel[0]]
+		DiscoverySystemInstance.rename_discovery(d.id, name_input.text)
+
+func _on_upload_btn_pressed() -> void:
+	var sel = item_list.get_selected_items()
+	if sel.size() > 0 and DiscoverySystemInstance:
+		var d = current_discoveries[sel[0]]
+		if DiscoverySystemInstance.upload_discovery(d.id):
+			if ContractSystemInstance:
+				# Example integration: Add credits manually or via a separate reward path
+				pass
+"
+
+[node name="DiscoveryMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = SubResource("GDScript_6d5k1")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Discovery Catalogue"
+horizontal_alignment = 1
+
+[node name="CreditsLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Credits: 0"
+horizontal_alignment = 2
+
+[node name="ItemList" type="ItemList" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="NameInput" type="LineEdit" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "New Name..."
+
+[node name="RenameBtn" type="Button" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Rename"
+
+[node name="UploadBtn" type="Button" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Upload Discovery"
+
+[connection signal="item_selected" from="MarginContainer/VBoxContainer/ItemList" to="." method="_on_item_list_item_selected"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/HBoxContainer/RenameBtn" to="." method="_on_rename_btn_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/UploadBtn" to="." method="_on_upload_btn_pressed"]

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CelestialBodyDef" format=3]
+
+[ext_resource type="Script" path="res://game/universe/celestial_body_def.gd" id="1_fy4es"]
+
+[resource]
+script = ExtResource("1_fy4es")
+id = &"Mercury"
+display_name = "Mercury"
+parent_id = &"Sun"
+mass_kg = 3.3011e+23
+mu_m3_s2 = 22032000000000.0
+radius_m = 2439700.0
+rotation_period_s = 5067360.0
+surface_gravity = 3.7
+atmosphere_color = Color(1, 1, 1, 0)
+orbit_line_color = Color(0.75, 0.7, 0.65, 0.7)
+semi_major_axis_m = 57909050000.0
+eccentricity = 0.20563593
+inclination_deg = 7.00497902
+longitude_ascending_node_deg = 48.33076593
+argument_periapsis_deg = 29.12703035
+mean_anomaly_at_epoch_deg = 174.79252722

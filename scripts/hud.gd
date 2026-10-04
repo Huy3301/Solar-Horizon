@@ -33,7 +33,7 @@ var ship: ShipFlightController
 
 # Mobile Controls
 @onready var mobile_controls_container: Control = get_node_or_null("MobileControls")
-@onready var virtual_stick: VirtualJoystick = get_node_or_null("MobileControls/VirtualJoystick")
+@onready var virtual_stick: SolarVirtualJoystick = get_node_or_null("MobileControls/VirtualJoystick")
 @onready var throttle_slider: VSlider = get_node_or_null("MobileControls/ThrottleSlider")
 @onready var btn_gear: Button = get_node_or_null("MobileControls/ButtonGear")
 @onready var btn_brakes: Button = get_node_or_null("MobileControls/ButtonBrakes")
@@ -47,6 +47,9 @@ func _ready() -> void:
 	if ship:
 		ship.flight_data_updated.connect(_on_flight_data_updated)
 		ship.landing_state_changed.connect(_on_landing_state_changed)
+		
+	if Engine.has_singleton("SimulationClock"):
+		SimulationClock.warp_changed.connect(_on_warp_changed)
 		
 	# Setup Mobile UI if mobile device is detected or touch is available
 	var is_mobile: bool = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
@@ -64,6 +67,15 @@ func _ready() -> void:
 		
 	if btn_camera:
 		btn_camera.pressed.connect(_on_btn_camera_pressed)
+
+func _on_warp_changed(factor: int, on_rails: bool) -> void:
+	if label_status:
+		if factor > 1:
+			label_status.text = "TIME WARP: %dx %s" % [factor, "(ON RAILS)" if on_rails else ""]
+			label_status.modulate = Color(1.0, 0.8, 0.2)
+		else:
+			label_status.text = "REALTIME (1x)"
+			label_status.modulate = Color.WHITE
 
 func _process(_delta: float) -> void:
 	if not ship:
@@ -118,21 +130,20 @@ func _on_flight_data_updated(data: Dictionary) -> void:
 		else:
 			label_alt_agl.text = "RDR (AGL): %4.0f m" % agl_m
 
-	var r_sim_km: float = 50.0 + (alt_m / 1000.0)
-	var v_circ: float = sqrt(490.5 / r_sim_km) * 1000.0
-	var v_ratio: float = speed_ms / max(1.0, v_circ)
-	
 	if label_apoapsis and label_periapsis and label_period:
 		if alt_m > 500.0:
-			var ap_km: float = max(alt_m / 1000.0, (alt_m / 1000.0) * pow(v_ratio, 1.8))
-			var pe_km: float = min(alt_m / 1000.0, (alt_m / 1000.0) * max(0.1, 2.0 - pow(v_ratio, 1.8)))
-			label_apoapsis.text = "APOAPSIS (Ap): %5.1f km" % ap_km
-			label_periapsis.text = "PERIAPSIS (Pe): %5.1f km" % pe_km
+			var ap_km: float = data.get("ap_km", 0.0)
+			var pe_km: float = data.get("pe_km", 0.0)
+			var period_min: float = data.get("period_min", 0.0)
+			var ecc: float = data.get("eccentricity", 0.0)
 			
-			var semi_major_km: float = (ap_km + pe_km + 100.0) * 0.5
-			var period_min: float = 2.0 * PI * sqrt(pow(semi_major_km, 3.0) / 490.5) / 60.0
-			var ecc: float = abs(ap_km - pe_km) / (ap_km + pe_km + 100.0)
-			label_period.text = "ORB PERIOD: %4.1f min (e: %1.4f)" % [period_min, ecc]
+			if ap_km < 0:
+				label_apoapsis.text = "APOAPSIS (Ap): ESCAPE TRAJ"
+				label_period.text = "ORB PERIOD: HYPERBOLIC (e: %1.4f)" % ecc
+			else:
+				label_apoapsis.text = "APOAPSIS (Ap): %5.1f km" % ap_km
+				label_period.text = "ORB PERIOD: %4.1f min (e: %1.4f)" % [period_min, ecc]
+			label_periapsis.text = "PERIAPSIS (Pe): %5.1f km" % pe_km
 		else:
 			label_apoapsis.text = "SUB-ORBITAL FLIGHT PATH"
 			label_periapsis.text = "ATMOSPHERIC REGIME"
@@ -143,7 +154,8 @@ func _on_flight_data_updated(data: Dictionary) -> void:
 		label_vspeed.text = "VERTICAL RATE: %s%3.1f m/s" % [sign_str, vspeed]
 
 	if label_heading:
-		label_heading.text = "ORBIT INCLINATION: 51.6° (HDG: %03.0f°)" % data.get("heading_deg", 0.0)
+		var inc_deg = data.get("inclination_deg", 0.0)
+		label_heading.text = "ORBIT INCLINATION: %2.1f° (HDG: %03.0f°)" % [inc_deg, data.get("heading_deg", 0.0)]
 
 	if label_throttle:
 		var thrust_kn: float = (throttle_pct / 100.0) * 450.0
@@ -178,11 +190,11 @@ func _on_flight_data_updated(data: Dictionary) -> void:
 			label_gear.modulate = Color(0.6, 0.7, 0.8)
 
 	if label_gforce:
-		if alt_m > 500.0 and throttle_pct < 1.0:
+		if alt_m > 500.0 and throttle_pct < 1.0 and data.get("g_force_val", 0.0) < 0.05:
 			label_gforce.text = "GRAVITATIONAL LOAD: 0.00 G [MICROGRAVITY]"
 		else:
-			var thrust_accel_g: float = ((throttle_pct / 100.0) * 450000.0) / (14500.0 * 9.81)
-			label_gforce.text = "GRAVITATIONAL LOAD: %2.2f G" % (1.0 + thrust_accel_g)
+			var g_val = data.get("g_force_val", 1.0)
+			label_gforce.text = "GRAVITATIONAL LOAD: %2.2f G" % g_val
 
 	if horizon_indicator:
 		var pitch: float = data.get("pitch_deg", 0.0)

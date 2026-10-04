@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://ship_uid_placeholder"]
+
+[node name="Ship" type="RigidBody3D"]
+
+[node name="Hull" type="CSGCylinder3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+radius = 1.0
+height = 4.0
+cone = true
+
+[node name="WingL" type="CSGBox3D" parent="Hull"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, -1, 0)
+size = Vector3(2, 0.2, 1)
+
+[node name="WingR" type="CSGBox3D" parent="Hull"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, -1, 0)
+size = Vector3(2, 0.2, 1)

@@ -34,6 +34,20 @@ var mat_sky: ShaderMaterial
 func _ready() -> void:
 	_init_materials()
 	_update_sun_and_shaders()
+	
+	# Integrate with Phase 1 Double-Precision core (WP3)
+	if get_tree().get_nodes_in_group("origin_service").is_empty():
+		var origin_svc = OriginService.new()
+		origin_svc.add_to_group("origin_service")
+		add_child(origin_svc)
+		# Set the origin to exactly Earth's position + Earth radius (637100) + 50000m (EarthGlobe legacy offset)
+		var sim_time = 0.0
+		if Engine.has_singleton("SimulationClock"):
+			sim_time = SimulationClock.sim_time_s
+		var earth_pos = GravityService.body_position("Earth", sim_time)
+		# We want global_position = 0 to map to altitude 50000 above the scaled Earth radius.
+		var offset = earth_pos.add(DVec3.new(0.0, 637100.0 + 50000.0, 0.0))
+		origin_svc.origin.offset = offset
 
 func _init_materials() -> void:
 	if earth_surface_mesh and earth_surface_mesh.get_active_material(0) is ShaderMaterial:

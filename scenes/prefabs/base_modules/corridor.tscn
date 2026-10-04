@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://corridor_uid_placeholder"]
+
+[node name="Corridor" type="StaticBody3D"]
+
+[node name="Mesh" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+size = Vector3(2, 2.5, 4)
+
+[node name="SnapPoint0" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+
+[node name="SnapPoint1" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2)

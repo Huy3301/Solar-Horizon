@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dcaufs8cgo8wd"
+path="res://.godot/imported/atmosphere_luts.glsl-47cbddfa4973bf0ff0e18f50ceee9426.res"
+
+[deps]
+
+source_file="res://shaders/atmosphere/atmosphere_luts.glsl"
+dest_files=["res://.godot/imported/atmosphere_luts.glsl-47cbddfa4973bf0ff0e18f50ceee9426.res"]
+
+[params]
+

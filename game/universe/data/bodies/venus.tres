@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CelestialBodyDef" format=3]
+
+[ext_resource type="Script" path="res://game/universe/celestial_body_def.gd" id="1_8vvd6"]
+
+[resource]
+script = ExtResource("1_8vvd6")
+id = &"Venus"
+display_name = "Venus"
+parent_id = &"Sun"
+mass_kg = 4.8675e+24
+mu_m3_s2 = 324859000000000.0
+radius_m = 6051800.0
+rotation_period_s = -20997000.0
+surface_gravity = 8.87
+has_atmosphere = true
+surface_pressure_pa = 9300000.0
+scale_height_m = 15900.0
+atmosphere_color = Color(0.9, 0.8, 0.5, 0.85)
+orbit_line_color = Color(0.95, 0.75, 0.35, 0.75)
+semi_major_axis_m = 108208000000.0
+eccentricity = 0.00677672
+inclination_deg = 3.39467605
+longitude_ascending_node_deg = 76.67984255
+argument_periapsis_deg = 54.92262463
+mean_anomaly_at_epoch_deg = 50.37663232

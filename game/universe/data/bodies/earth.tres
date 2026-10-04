@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CelestialBodyDef" format=3]
+
+[ext_resource type="Script" path="res://game/universe/celestial_body_def.gd" id="1_5uvll"]
+
+[resource]
+script = ExtResource("1_5uvll")
+id = &"Earth"
+display_name = "Earth"
+parent_id = &"Sun"
+mass_kg = 5.9722e+24
+mu_m3_s2 = 398600441800000.0
+radius_m = 6371000.0
+rotation_period_s = 86162.40000000001
+surface_gravity = 9.807
+has_atmosphere = true
+surface_pressure_pa = 101325.0
+scale_height_m = 8500.0
+atmosphere_color = Color(0.35, 0.65, 0.95, 0.8)
+orbit_line_color = Color(0.2, 0.6, 1, 0.8)
+semi_major_axis_m = 149598023000.0
+eccentricity = 0.01671123
+inclination_deg = -1.531e-05
+argument_periapsis_deg = 102.93768193
+mean_anomaly_at_epoch_deg = -2.47311027

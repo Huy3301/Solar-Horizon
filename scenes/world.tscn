@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://world_scene_01"]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/earth_environment.gd" id="1_env"]
 [ext_resource type="Material" path="res://assets/materials/space_sky_mat.tres" id="2_sky_mat"]

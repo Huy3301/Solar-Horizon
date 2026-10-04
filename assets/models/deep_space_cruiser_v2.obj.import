@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://do0vfxiostij5"
+path="res://.godot/imported/deep_space_cruiser_v2.obj-e93feb8bfcf29974fa03f33b24fbfecc.mesh"
+
+[deps]
+
+files=["res://.godot/imported/deep_space_cruiser_v2.obj-e93feb8bfcf29974fa03f33b24fbfecc.mesh"]
+
+source_file="res://assets/models/deep_space_cruiser_v2.obj"
+dest_files=["res://.godot/imported/deep_space_cruiser_v2.obj-e93feb8bfcf29974fa03f33b24fbfecc.mesh", "res://.godot/imported/deep_space_cruiser_v2.obj-e93feb8bfcf29974fa03f33b24fbfecc.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

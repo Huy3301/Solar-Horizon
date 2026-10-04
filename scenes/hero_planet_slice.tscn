@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://hero_planet_slice"]
+
+[ext_resource type="Script" path="res://game/planet/planet_runtime.gd" id="1_planet"]
+[ext_resource type="Script" path="res://game/planet/atmosphere_system.gd" id="2_atmos"]
+
+[node name="HeroPlanetSlice" type="Node3D"]
+
+[node name="PlanetRuntime" type="Node3D" parent="."]
+script = ExtResource("1_planet")
+
+[node name="AtmosphereSystem" type="Node3D" parent="PlanetRuntime"]
+script = ExtResource("2_atmos")

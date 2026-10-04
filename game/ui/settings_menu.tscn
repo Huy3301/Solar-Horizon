@@ -1,0 +1,170 @@
+[gd_scene load_steps=2 format=3 uid="uid://settings_menu_uid_123"]
+
+[sub_resource type="GDScript" id="GDScript_1"]
+script/source = "extends Control
+
+@onready var scale_slider = $Panel/VBoxContainer/ScaleSlider
+@onready var cb_option = $Panel/VBoxContainer/ColorBlindOption
+@onready var toggle_check = $Panel/VBoxContainer/ToggleCheck
+@onready var haptics_check = $Panel/VBoxContainer/HapticsCheck
+@onready var haptics_slider = $Panel/VBoxContainer/HapticsSlider
+
+const SETTINGS_PATH = \"user://settings.cfg\"
+
+func _ready() -> void:
+	# Workaround for option button items being added in tscn vs via code
+	cb_option.clear()
+	cb_option.add_item(\"None\", 0)
+	cb_option.add_item(\"Protanopia\", 1)
+	cb_option.add_item(\"Deuteranopia\", 2)
+	cb_option.add_item(\"Tritanopia\", 3)
+
+	_load_settings()
+	
+	scale_slider.value_changed.connect(_on_scale_changed)
+	cb_option.item_selected.connect(_on_cb_selected)
+	toggle_check.toggled.connect(_on_toggle_changed)
+	haptics_check.toggled.connect(_on_haptics_toggled)
+	haptics_slider.value_changed.connect(_on_haptics_slider_changed)
+
+func _on_scale_changed(value: float) -> void:
+	if has_node(\"/root/AccessibilityManager\"):
+		get_node(\"/root/AccessibilityManager\").ui_scale = value
+	_save_settings()
+
+func _on_cb_selected(index: int) -> void:
+	if has_node(\"/root/AccessibilityManager\"):
+		get_node(\"/root/AccessibilityManager\").color_blind_mode = index
+	_save_settings()
+
+func _on_toggle_changed(button_pressed: bool) -> void:
+	if has_node(\"/root/AccessibilityManager\"):
+		get_node(\"/root/AccessibilityManager\").use_toggle_controls = button_pressed
+	_save_settings()
+
+func _on_haptics_toggled(button_pressed: bool) -> void:
+	if has_node(\"/root/HapticsManager\"):
+		get_node(\"/root/HapticsManager\").haptics_enabled = button_pressed
+	_save_settings()
+
+func _on_haptics_slider_changed(value: float) -> void:
+	if has_node(\"/root/HapticsManager\"):
+		get_node(\"/root/HapticsManager\").haptics_intensity_multiplier = value
+	_save_settings()
+
+func _load_settings() -> void:
+	var config = ConfigFile.new()
+	if config.load(SETTINGS_PATH) == OK:
+		var s_val = config.get_value(\"accessibility\", \"ui_scale\", 1.0)
+		scale_slider.value = s_val
+		_on_scale_changed(s_val)
+		
+		var cb_val = config.get_value(\"accessibility\", \"color_blind\", 0)
+		cb_option.selected = cb_val
+		_on_cb_selected(cb_val)
+		
+		var t_val = config.get_value(\"accessibility\", \"use_toggle\", false)
+		toggle_check.button_pressed = t_val
+		_on_toggle_changed(t_val)
+		
+		var h_on = config.get_value(\"haptics\", \"enabled\", true)
+		haptics_check.button_pressed = h_on
+		_on_haptics_toggled(h_on)
+		
+		var h_mult = config.get_value(\"haptics\", \"multiplier\", 1.0)
+		haptics_slider.value = h_mult
+		_on_haptics_slider_changed(h_mult)
+
+func _save_settings() -> void:
+	var config = ConfigFile.new()
+	config.set_value(\"accessibility\", \"ui_scale\", scale_slider.value)
+	config.set_value(\"accessibility\", \"color_blind\", cb_option.selected)
+	config.set_value(\"accessibility\", \"use_toggle\", toggle_check.button_pressed)
+	config.set_value(\"haptics\", \"enabled\", haptics_check.button_pressed)
+	config.set_value(\"haptics\", \"multiplier\", haptics_slider.value)
+	config.save(SETTINGS_PATH)
+"
+
+[node name="SettingsMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = SubResource("GDScript_1")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -250.0
+offset_right = 200.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Settings"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ScaleLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "UI Scale"
+
+[node name="ScaleSlider" type="HSlider" parent="Panel/VBoxContainer"]
+layout_mode = 2
+min_value = 0.5
+max_value = 2.0
+step = 0.1
+value = 1.0
+
+[node name="CBLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Color Blind Mode"
+
+[node name="ColorBlindOption" type="OptionButton" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ToggleCheck" type="CheckBox" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Use Toggle Controls (vs Hold)"
+
+[node name="HSeparator2" type="HSeparator" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="HapticsCheck" type="CheckBox" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Enable Haptics / Vibration"
+button_pressed = true
+
+[node name="HapticsLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Haptics Intensity"
+
+[node name="HapticsSlider" type="HSlider" parent="Panel/VBoxContainer"]
+layout_mode = 2
+max_value = 2.0
+step = 0.1
+value = 1.0

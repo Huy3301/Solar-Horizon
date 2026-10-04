@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://birr7ddmplltk"
+path="res://.godot/imported/terrain_height.glsl-e14b6fd660a1f7b3d6a9734eef2e2c72.res"
+
+[deps]
+
+source_file="res://game/planet/core/terrain_height.glsl"
+dest_files=["res://.godot/imported/terrain_height.glsl-e14b6fd660a1f7b3d6a9734eef2e2c72.res"]
+
+[params]
+

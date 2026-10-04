@@ -34,7 +34,7 @@ func _ready() -> void:
 		target_ship = get_parent()
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_just_pressed("toggle_camera"):
+	if event.is_action_pressed("toggle_camera"):
 		_cycle_camera_mode()
 		
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):

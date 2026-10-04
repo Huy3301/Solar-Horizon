@@ -23,7 +23,7 @@ func _ready() -> void:
 	visible = is_map_open
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_just_pressed("toggle_map"):
+	if event.is_action_pressed("toggle_map"):
 		toggle_map_view()
 		
 	if not is_map_open:
@@ -35,9 +35,9 @@ func _input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			zoom_level = clamp(zoom_level * 1.15, 0.05, 50.0)
 			
-	if event.is_action_just_pressed("time_warp_increase"):
+	if event.is_action_pressed("time_warp_increase"):
 		_set_time_warp(time_warp_factor * 5.0)
-	elif event.is_action_just_pressed("time_warp_decrease"):
+	elif event.is_action_pressed("time_warp_decrease"):
 		_set_time_warp(max(1.0, time_warp_factor / 5.0))
 
 func toggle_map_view() -> void:

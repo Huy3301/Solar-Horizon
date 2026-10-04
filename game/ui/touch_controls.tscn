@@ -1,0 +1,43 @@
+[gd_scene load_steps=2 format=3 uid="uid://abcd1234efgh1234"]
+
+[ext_resource type="Script" path="res://game/ui/touch_controls.gd" id="1_xyz987"]
+
+[node name="TouchControls" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_xyz987")
+
+[node name="MovementJoystick" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 100.0
+offset_top = -250.0
+offset_right = 250.0
+offset_bottom = -100.0
+grow_vertical = 0
+
+[node name="JumpButton" type="TouchScreenButton" parent="."]
+position = Vector2(1600, 800)
+scale = Vector2(2, 2)
+action = "jump"
+
+[node name="JetpackButton" type="TouchScreenButton" parent="."]
+position = Vector2(1750, 700)
+scale = Vector2(2, 2)
+action = "jetpack"
+
+[node name="InteractButton" type="TouchScreenButton" parent="."]
+position = Vector2(1750, 900)
+scale = Vector2(2, 2)
+action = "interact"
+
+[node name="ScanButton" type="TouchScreenButton" parent="."]
+position = Vector2(1600, 950)
+scale = Vector2(2, 2)
+action = "scan"

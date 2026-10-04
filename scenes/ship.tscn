@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://ship_scene_01"]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/ship_flight_controller.gd" id="1_flight"]
 [ext_resource type="ArrayMesh" path="res://assets/models/spacecraft_orbiter.obj" id="2_orbiter"]

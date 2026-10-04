@@ -1,0 +1,8 @@
+.godot/
+/build/
+/exports/
+*.tmp
+android/build/
+.DS_Store
+Thumbs.db
+*.translation

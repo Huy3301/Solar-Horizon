@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://rock_uid_placeholder"]
+
+[node name="Rock" type="Node3D"]
+
+[node name="Mesh" type="CSGSphere3D" parent="."]
+transform = Transform3D(1.5, 0, 0, 0, 0.8, 0, 0, 0, 1.2, 0, 0.4, 0)
+radius = 1.0
+radial_segments = 6
+rings = 4

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CelestialBodyDef" format=3]
+
+[ext_resource type="Script" path="res://game/universe/celestial_body_def.gd" id="1_6l6hj"]
+
+[resource]
+script = ExtResource("1_6l6hj")
+id = &"Europa"
+display_name = "Europa"
+parent_id = &"Jupiter"
+body_type = 2
+mass_kg = 4.8e+22
+mu_m3_s2 = 3202700000000.0
+radius_m = 1560800.0
+rotation_period_s = 306720.0
+surface_gravity = 1.315
+atmosphere_color = Color(1, 1, 1, 0)
+orbit_line_color = Color(0.7, 0.85, 0.95, 0.8)
+semi_major_axis_m = 670900000.0
+eccentricity = 0.009
+inclination_deg = 0.47

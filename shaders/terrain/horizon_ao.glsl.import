@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dfdx8evd0l4lp"
+path="res://.godot/imported/horizon_ao.glsl-f4aaa9cbca58bf3153359e63987eafb7.res"
+
+[deps]
+
+source_file="res://shaders/terrain/horizon_ao.glsl"
+dest_files=["res://.godot/imported/horizon_ao.glsl-f4aaa9cbca58bf3153359e63987eafb7.res"]
+
+[params]
+

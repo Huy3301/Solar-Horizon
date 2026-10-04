@@ -1,0 +1,45 @@
+[gd_scene load_steps=2 format=3 uid="uid://d3j0xxxxxx"]
+
+[sub_resource type="GDScript" id="GDScript_12345"]
+script/source = "extends Control
+class_name OrbitMap
+
+@export var center_body_name: String = \"Planet\"
+@export var zoom_level: float = 1e-4
+
+var orbit_elements = null # OrbitalMechanics.OrbitElements
+var maneuver_node = null
+
+func _process(delta: float) -> void:
+	queue_redraw()
+
+func set_orbit(elements) -> void:
+	orbit_elements = elements
+
+func _draw() -> void:
+	# Draw center body
+	draw_circle(size / 2.0, 10.0, Color.WHITE)
+	
+	if orbit_elements:
+		var pts = OrbitalMechanics.sample_orbit_points(orbit_elements, 128)
+		var points_2d = PackedVector2Array()
+		for p in pts:
+			# Map 3D to 2D
+			var p2 = Vector2(p.x, p.z) * zoom_level + size / 2.0
+			points_2d.append(p2)
+		
+		if points_2d.size() > 1:
+			draw_polyline(points_2d, Color.GREEN, 2.0, true)
+			
+	if maneuver_node:
+		draw_circle(maneuver_node.position_2d, 5.0, Color.YELLOW)
+"
+
+[node name="OrbitMap" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = SubResource("GDScript_12345")

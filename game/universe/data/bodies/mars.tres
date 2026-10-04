@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CelestialBodyDef" format=3]
+
+[ext_resource type="Script" path="res://game/universe/celestial_body_def.gd" id="1_bc38g"]
+
+[resource]
+script = ExtResource("1_bc38g")
+id = &"Mars"
+display_name = "Mars"
+parent_id = &"Sun"
+mass_kg = 6.4171e+23
+mu_m3_s2 = 42828370000000.0
+radius_m = 3389500.0
+rotation_period_s = 88642.8
+surface_gravity = 3.72
+has_atmosphere = true
+surface_pressure_pa = 636.0
+scale_height_m = 11100.0
+atmosphere_color = Color(0.85, 0.45, 0.3, 0.5)
+orbit_line_color = Color(0.95, 0.4, 0.25, 0.8)
+semi_major_axis_m = 227939200000.0
+eccentricity = 0.0933941
+inclination_deg = 1.84969142
+longitude_ascending_node_deg = 49.55953891
+argument_periapsis_deg = -73.5031685
+mean_anomaly_at_epoch_deg = 19.39019754

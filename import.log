@@ -1,0 +1,33 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+Running tests...
+PASS: res://tests/core/test_core.gd::test_dvec3_precision
+PASS: res://tests/core/test_core.gd::test_universe_position_carry
+PASS: res://tests/core/test_core.gd::test_universe_position_difference
+PASS: res://tests/core/test_core.gd::test_gamescale_period
+PASS: res://tests/core/test_core.gd::test_simulation_clock
+PASS: res://tests/planet/test_planet_quadtree.gd::test_spherified_cube_mapping
+PASS: res://tests/planet/test_planet_quadtree.gd::test_cpu_noise_deterministic
+PASS: res://tests/planet/test_planet_quadtree.gd::test_quadtree_split
+WARNING: GPU heights unavailable (no RenderingDevice). Falling back to CPU/analytic.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://game/planet/core/gpu_height_generator.gd:13)
+       [1] _ready (res://game/planet/core/planet_quadtree.gd:38)
+       [2] test_rapid_camera_movement (res://tests/planet/test_planet_streaming.gd:5)
+       [3] _init (res://tests/run_tests.gd:28)
+PASS: res://tests/planet/test_planet_streaming.gd::test_rapid_camera_movement
+PASS: res://tests/universe/test_universe.gd::test_kepler_solver
+PASS: res://tests/universe/test_universe.gd::test_round_trip
+PASS: res://tests/universe/test_universe.gd::test_circular_orbit_period
+PASS: res://tests/universe/test_universe.gd::test_energy_conservation
+PASS: res://tests/universe/test_universe.gd::test_earth_heliocentric
+PASS: res://tests/universe/test_universe.gd::test_dominant_body
+PASS: res://tests/universe/test_universe.gd::test_shim_solar_system_data
+PASS: res://tests/universe/test_universe.gd::test_old_calculate_orbit
+---
+Tests: 17 passed / 17 total
+WARNING: 3 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

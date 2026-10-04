@@ -1,5 +1,5 @@
 extends Control
-class_name VirtualJoystick
+class_name SolarVirtualJoystick
 
 ## Cross-platform mobile touch virtual thumbstick for analog pitch and roll control.
 ## Automatically toggles visibility on mobile devices or touch screens.

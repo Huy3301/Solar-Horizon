@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/fx/sun_glare.gdshader" id="1_shd"]
+
+[resource]
+resource_name = "SunGlareMaterial"
+render_priority = 10
+shader = ExtResource("1_shd")
+shader_parameter/quality_tier = 1
+shader_parameter/sun_color = Color(1, 0.98, 0.92, 1)
+shader_parameter/core_intensity = 12.0
+shader_parameter/corona_intensity = 2.5
+shader_parameter/spike_intensity = 1.8
+shader_parameter/eclipse_factor = 1.0
+shader_parameter/flare_scale = 1.0

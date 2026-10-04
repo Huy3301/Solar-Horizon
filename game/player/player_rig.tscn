@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3 uid="uid://b8d9k1m2player_rig"]
+
+[ext_resource type="Script" path="res://game/player/player_rig.gd" id="1_player_rig"]
+[ext_resource type="Script" path="res://game/player/on_foot_rig.gd" id="2_on_foot_rig"]
+
+[node name="PlayerRig" type="Node3D"]
+script = ExtResource("1_player_rig")
+
+[node name="OnFootRig" type="CharacterBody3D" parent="."]
+visible = false
+script = ExtResource("2_on_foot_rig")

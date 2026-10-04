@@ -1,7 +1,7 @@
-[ext_resource type="Script" path="res://game/core/origin_service.gd" id="origin_script"]
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/earth_environment.gd" id="1_env"]
+[ext_resource type="Script" path="res://game/core/origin_service.gd" id="origin_script"]
 [ext_resource type="Material" path="res://assets/materials/space_sky_mat.tres" id="2_sky_mat"]
 [ext_resource type="Material" path="res://assets/materials/earth_surface_mat.tres" id="3_surf_mat"]
 [ext_resource type="Material" path="res://assets/materials/earth_clouds_mat.tres" id="4_cloud_mat"]
@@ -66,7 +66,7 @@ environment = SubResource("Environment_leo")
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 10000, 0)
 light_color = Color(1, 0.98, 0.94, 1)
 light_energy = 2.4
-shadow_enabled = true
+shadow_enabled = false
 directional_shadow_max_distance = 15000.0
 
 [node name="EarthGlobe" type="Node3D" parent="."]
@@ -93,4 +93,9 @@ linear_velocity = Vector3(0, 0, -681.7)
 
 [node name="HUD" parent="." instance=ExtResource("7_hud")]
 ship_path = NodePath("../Ship")
+
+
+
+
+
 

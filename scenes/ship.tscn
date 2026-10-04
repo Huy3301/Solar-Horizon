@@ -99,5 +99,6 @@ chase_height = 7.0
 [node name="Camera3D" type="Camera3D" parent="CameraController"]
 current = true
 fov = 72.0
-near = 0.1
-far = 8000000.0
+near = 2.0
+far = 500000.0
+

@@ -48,8 +48,9 @@ func _ready() -> void:
 		ship.flight_data_updated.connect(_on_flight_data_updated)
 		ship.landing_state_changed.connect(_on_landing_state_changed)
 		
-	if Engine.has_singleton("SimulationClock"):
-		SimulationClock.warp_changed.connect(_on_warp_changed)
+	var sim_clock = get_node_or_null("/root/SimulationClock")
+	if sim_clock and sim_clock.has_signal("warp_changed"):
+		sim_clock.warp_changed.connect(_on_warp_changed)
 		
 	# Setup Mobile UI if mobile device is detected or touch is available
 	var is_mobile: bool = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()

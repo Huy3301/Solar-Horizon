@@ -21,6 +21,7 @@ class_name EarthEnvironment
 @onready var earth_surface_mesh: MeshInstance3D = get_node_or_null("EarthGlobe/Surface")
 @onready var earth_clouds_mesh: MeshInstance3D = get_node_or_null("EarthGlobe/Clouds")
 @onready var earth_atmo_mesh: MeshInstance3D = get_node_or_null("EarthGlobe/Atmosphere")
+@onready var moon_globe: Node3D = get_node_or_null("MoonGlobe")
 
 var current_sun_angle: float = 0.85
 var current_planet_rot: float = 0.0
@@ -40,12 +41,14 @@ func _ready() -> void:
 	if origin_svc:
 		# Set the origin to exactly Earth's position + Earth radius (637100) + 50000m (EarthGlobe legacy offset)
 		var sim_time = 0.0
-		if Engine.has_singleton("SimulationClock"):
-			sim_time = SimulationClock.sim_time_s
+		var sim_clock = get_node_or_null("/root/SimulationClock")
+		if sim_clock:
+			sim_time = sim_clock.sim_time_s
 		var earth_pos = GravityService.body_position("Earth", sim_time)
 		# We want global_position = 0 to map to altitude 50000 above the scaled Earth radius.
 		var offset = earth_pos.add(DVec3.new(0.0, 637100.0 + 50000.0, 0.0))
 		origin_svc.origin.offset = offset
+	_update_moon_position()
 
 func _init_materials() -> void:
 	if earth_surface_mesh and earth_surface_mesh.get_active_material(0) is ShaderMaterial:
@@ -70,6 +73,19 @@ func _process(delta: float) -> void:
 	if day_cycle_speed > 0.0:
 		current_sun_angle = fmod(current_sun_angle + day_cycle_speed * delta, TAU)
 		_update_sun_and_shaders()
+		
+	_update_moon_position()
+
+func _update_moon_position() -> void:
+	if moon_globe:
+		var sim_clock = get_node_or_null("/root/SimulationClock")
+		var sim_time = sim_clock.sim_time_s if sim_clock else 0.0
+		var earth_pos = GravityService.body_position("Earth", sim_time)
+		var moon_pos = GravityService.body_position("Moon", sim_time)
+		var rel_vec = moon_pos.sub(earth_pos).to_vector3()
+		if rel_vec.length_squared() > 1.0:
+			var earth_center = Vector3(0.0, -50000.0, 0.0)
+			moon_globe.position = earth_center + rel_vec.normalized() * 123729.0
 
 func _update_sun_and_shaders() -> void:
 	var tilt_rad: float = deg_to_rad(sun_inclination_deg)

@@ -55,12 +55,25 @@ var control_vtol: float = 0.0
 @onready var gear_right_ray: RayCast3D = get_node_or_null("GearRightRay")
 
 var telemetry_data: Dictionary = {}
+var sim_time: float = 0.0
+var simulation_clock: Node = null
+
+func _get_sim_clock() -> Node:
+	if simulation_clock:
+		return simulation_clock
+	if is_inside_tree():
+		return get_node_or_null("/root/SimulationClock")
+	if Engine.get_main_loop() is SceneTree and (Engine.get_main_loop() as SceneTree).root:
+		return (Engine.get_main_loop() as SceneTree).root.get_node_or_null("SimulationClock")
+	return null
 
 func _get_universe_pos() -> DVec3:
-	var origin_svc = get_tree().get_first_node_in_group("origin_service")
-	if origin_svc and origin_svc.has_method("local_to_universe"):
-		var up = origin_svc.local_to_universe(global_position)
-		return up.offset
+	var tree = get_tree()
+	if tree:
+		var origin_svc = tree.get_first_node_in_group("origin_service")
+		if origin_svc and origin_svc.has_method("local_to_universe"):
+			var up = origin_svc.local_to_universe(global_position)
+			return up.offset
 	return DVec3.from_vector3(global_position)
 
 func _ready() -> void:
@@ -75,9 +88,12 @@ func _physics_process(delta: float) -> void:
 	_handle_inputs(delta)
 	_update_throttle(delta)
 	
-	var sim_time: float = 0.0
-	if Engine.has_singleton("SimulationClock"):
-		sim_time = SimulationClock.sim_time_s
+	var sim_clock = _get_sim_clock()
+	sim_time = sim_clock.sim_time_s if sim_clock else 0.0
+	
+	if not is_inside_tree():
+		telemetry_data["sim_time"] = sim_time
+		return
 	
 	var ship_pos: DVec3 = _get_universe_pos()
 	
@@ -241,7 +257,8 @@ func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_loc
 	var heading_deg: float = fmod(rad_to_deg(-rot.y) + 360.0, 360.0)
 	var mach: float = speed / 340.29
 	
-	var sim_time: float = SimulationClock.sim_time_s if Engine.has_singleton("SimulationClock") else 0.0
+	var sim_clock = _get_sim_clock()
+	sim_time = sim_clock.sim_time_s if sim_clock else 0.0
 	var ship_pos: DVec3 = _get_universe_pos()
 	var dom_id = GravityService.dominant_body(ship_pos, sim_time)
 	var dom_pos = GravityService.body_position(dom_id, sim_time)
@@ -258,6 +275,7 @@ func _update_telemetry(alt_asl: float, speed: float, q: float, rho: float, g_loc
 	var orbit = OrbitalMechanics.calculate_orbit(r_vec, linear_velocity, mu, radius)
 	
 	telemetry_data = {
+		"sim_time": sim_time,
 		"speed_ms": speed,
 		"speed_kmh": speed * 3.6,
 		"speed_knots": speed * 1.94384,

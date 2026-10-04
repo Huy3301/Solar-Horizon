@@ -1,0 +1,87 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://game/ui/game_ui.gd" id="1_gui"]
+[ext_resource type="PackedScene" path="res://game/ui/components/flight_telemetry.tscn" id="2_ftel"]
+[ext_resource type="PackedScene" path="res://game/ui/components/suit_bars.tscn" id="3_suit"]
+[ext_resource type="PackedScene" path="res://game/ui/inventory_menu.tscn" id="4_inv"]
+[ext_resource type="PackedScene" path="res://game/ui/orbit_map.tscn" id="5_omap"]
+[ext_resource type="PackedScene" path="res://game/ui/components/pause_menu.tscn" id="6_pmenu"]
+[ext_resource type="PackedScene" path="res://game/ui/touch_controls.tscn" id="7_touch"]
+
+[node name="GameUI" type="CanvasLayer"]
+script = ExtResource("1_gui")
+
+[node name="FlightTelemetry" parent="." instance=ExtResource("2_ftel")]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 340.0
+offset_bottom = 260.0
+
+[node name="SuitBars" parent="." instance=ExtResource("3_suit")]
+visible = false
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 300.0
+offset_bottom = 160.0
+
+[node name="OrbitMap" parent="." instance=ExtResource("5_omap")]
+visible = false
+
+[node name="InventoryMenu" parent="." instance=ExtResource("4_inv")]
+visible = false
+
+[node name="PauseMenu" parent="." instance=ExtResource("6_pmenu")]
+visible = false
+
+[node name="TouchControls" parent="." instance=ExtResource("7_touch")]
+
+[node name="InteractionPrompt" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -120.0
+offset_top = -120.0
+offset_right = 120.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Label" type="Label" parent="InteractionPrompt"]
+layout_mode = 2
+text = "[F] Interact"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TutorialBanner" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -250.0
+offset_top = 20.0
+offset_right = 250.0
+offset_bottom = 90.0
+grow_horizontal = 2
+
+[node name="Margin" type="MarginContainer" parent="TutorialBanner"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="TutorialBanner/Margin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="TutorialBanner/Margin/VBox"]
+layout_mode = 2
+text = "OBJECTIVE"
+horizontal_alignment = 1
+
+[node name="PromptLabel" type="Label" parent="TutorialBanner/Margin/VBox"]
+layout_mode = 2
+text = "Launch vessel from Adelaide Base"
+horizontal_alignment = 1

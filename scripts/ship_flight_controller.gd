@@ -51,8 +51,9 @@ var control_roll: float = 0.0
 var control_yaw: float = 0.0
 var control_vtol: float = 0.0
 
-@onready var left_plume: MeshInstance3D = get_node_or_null("VisualModel/LeftEnginePlume")
-@onready var right_plume: MeshInstance3D = get_node_or_null("VisualModel/RightEnginePlume")
+@onready var left_plume: MeshInstance3D = get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_L/LeftEnginePlume") if get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_L/LeftEnginePlume") else get_node_or_null("VisualModel/LeftEnginePlume")
+@onready var right_plume: MeshInstance3D = get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_R/RightEnginePlume") if get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_R/RightEnginePlume") else get_node_or_null("VisualModel/RightEnginePlume")
+@onready var gear_anim: AnimationPlayer = get_node_or_null("VisualModel/OrbiterModel/AnimationPlayer") if get_node_or_null("VisualModel/OrbiterModel/AnimationPlayer") else get_node_or_null("OrbiterModel/AnimationPlayer")
 @onready var radar_altimeter_ray: RayCast3D = get_node_or_null("RadarAltimeter")
 @onready var gear_front_ray: RayCast3D = get_node_or_null("GearFrontRay")
 @onready var gear_left_ray: RayCast3D = get_node_or_null("GearLeftRay")
@@ -229,6 +230,9 @@ func _apply_attitude_controls(q: float) -> void:
 
 func _update_engine_plumes(throttle: float) -> void:
 	if not left_plume or not right_plume:
+		left_plume = get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_L/LeftEnginePlume") if get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_L/LeftEnginePlume") else get_node_or_null("VisualModel/LeftEnginePlume")
+		right_plume = get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_R/RightEnginePlume") if get_node_or_null("VisualModel/OrbiterModel/SOCKET_engine_R/RightEnginePlume") else get_node_or_null("VisualModel/RightEnginePlume")
+	if not left_plume or not right_plume:
 		return
 		
 	if throttle > 0.01 and not is_crashed:
@@ -280,6 +284,13 @@ func _evaluate_surface_contact(planet_up: Vector3, agl: float) -> void:
 
 func toggle_landing_gear() -> void:
 	landing_gear_deployed = not landing_gear_deployed
+	if not gear_anim:
+		gear_anim = get_node_or_null("VisualModel/OrbiterModel/AnimationPlayer") if get_node_or_null("VisualModel/OrbiterModel/AnimationPlayer") else get_node_or_null("OrbiterModel/AnimationPlayer")
+	if gear_anim and gear_anim.has_animation("gear_deploy"):
+		if landing_gear_deployed:
+			gear_anim.play("gear_deploy")
+		else:
+			gear_anim.play_backwards("gear_deploy")
 	landing_gear_toggled.emit(landing_gear_deployed)
 
 func set_direct_throttle(val: float) -> void:

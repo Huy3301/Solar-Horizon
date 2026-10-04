@@ -1,0 +1,88 @@
+[gd_scene load_steps=2 format=3 uid="uid://suit_bars_scene_01"]
+
+[ext_resource type="Script" path="res://game/ui/components/suit_bars.gd" id="1_suit"]
+
+[node name="SuitBars" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 280.0
+offset_bottom = 140.0
+script = ExtResource("1_suit")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="VBox"]
+layout_mode = 2
+text = "EVA SUIT TELEMETRY"
+
+[node name="RowLifeSupport" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBox/RowLifeSupport"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "O2 / Life Sup:"
+
+[node name="LifeSupportBar" type="ProgressBar" parent="VBox/RowLifeSupport"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+value = 100.0
+
+[node name="LifeSupportVal" type="Label" parent="VBox/RowLifeSupport"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 2
+
+[node name="RowHazard" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBox/RowHazard"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Hazard Level:"
+
+[node name="HazardBar" type="ProgressBar" parent="VBox/RowHazard"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+value = 0.0
+
+[node name="HazardVal" type="Label" parent="VBox/RowHazard"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = "0%"
+horizontal_alignment = 2
+
+[node name="RowJetpack" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBox/RowJetpack"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Jetpack Fuel:"
+
+[node name="JetpackBar" type="ProgressBar" parent="VBox/RowJetpack"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+value = 100.0
+
+[node name="JetpackVal" type="Label" parent="VBox/RowJetpack"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 2
+
+[node name="CompassLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "HEADING: 000°"
+horizontal_alignment = 1

@@ -162,3 +162,16 @@ func _update_markers() -> void:
 
 func toggle_visibility() -> void:
 	is_visible_in_flight = not is_visible_in_flight
+
+func get_current_orbit() -> OrbitalMechanics.OrbitElements:
+	return current_orbit
+
+func get_ap_position() -> Vector3:
+	if ap_marker:
+		return ap_marker.global_position
+	return Vector3.ZERO
+
+func get_pe_position() -> Vector3:
+	if pe_marker:
+		return pe_marker.global_position
+	return Vector3.ZERO

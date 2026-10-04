@@ -1,105 +1,50 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://game/universe/main_world.gd" id="1_main_world"]
-[ext_resource type="Material" path="res://assets/materials/space_sky_mat.tres" id="2_sky_mat"]
-[ext_resource type="Material" path="res://assets/materials/earth_surface_mat.tres" id="3_surf_mat"]
-[ext_resource type="Material" path="res://assets/materials/earth_clouds_mat.tres" id="4_cloud_mat"]
-[ext_resource type="Material" path="res://assets/materials/earth_atmosphere_mat.tres" id="5_atmo_mat"]
-[ext_resource type="PackedScene" path="res://scenes/ship.tscn" id="6_ship"]
-[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="7_hud"]
-[ext_resource type="Material" path="res://assets/materials/lunar_surface_mat.tres" id="8_lunar_mat"]
-
-[sub_resource type="Sky" id="Sky_space"]
-sky_material = ExtResource("2_sky_mat")
-
-[sub_resource type="Environment" id="Environment_leo"]
-background_mode = 2
-sky = SubResource("Sky_space")
-ambient_light_source = 2
-ambient_light_color = Color(0.04, 0.07, 0.12, 1)
-tonemap_mode = 3
-tonemap_exposure = 1.1
-glow_enabled = true
-glow_intensity = 0.85
-glow_bloom = 0.15
-glow_blend_mode = 1
+[ext_resource type="PackedScene" path="res://game/fx/sky_environment.tscn" id="2_sky_env"]
+[ext_resource type="PackedScene" path="res://game/fx/earth_visual.tscn" id="3_earth_vis"]
+[ext_resource type="PackedScene" path="res://game/fx/moon_visual.tscn" id="4_moon_vis"]
+[ext_resource type="PackedScene" path="res://scenes/ship.tscn" id="5_ship"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="6_hud"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_earth"]
 radius = 637100.0
 
-[sub_resource type="SphereMesh" id="SphereMesh_earth_surface"]
-material = ExtResource("3_surf_mat")
-radius = 637100.0
-height = 1274200.0
-radial_segments = 256
-rings = 128
-
-[sub_resource type="SphereMesh" id="SphereMesh_earth_clouds"]
-material = ExtResource("4_cloud_mat")
-radius = 638600.0
-height = 1277200.0
-radial_segments = 256
-rings = 128
-
-[sub_resource type="SphereMesh" id="SphereMesh_earth_atmosphere"]
-material = ExtResource("5_atmo_mat")
-radius = 646100.0
-height = 1292200.0
-radial_segments = 256
-rings = 128
-
 [sub_resource type="SphereShape3D" id="SphereShape3D_moon"]
 radius = 173740.0
-
-[sub_resource type="SphereMesh" id="SphereMesh_moon"]
-material = ExtResource("8_lunar_mat")
-radius = 173740.0
-height = 347480.0
-radial_segments = 128
-rings = 64
 
 [node name="World" type="Node3D"]
 script = ExtResource("1_main_world")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Environment_leo")
+[node name="SkyEnvironment" parent="." instance=ExtResource("2_sky_env")]
 
-[node name="SunLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 10000, 0)
-light_color = Color(1, 0.98, 0.94, 1)
-light_energy = 2.4
-shadow_enabled = false
-directional_shadow_max_distance = 15000.0
+[node name="DirectionalLight3D" parent="SkyEnvironment/Sun" index="0"]
+shadow_enabled = true
+directional_shadow_max_distance = 350.0
 
-[node name="EarthGlobe" type="Node3D" parent="."]
+[node name="SunLight" type="Node3D" parent="."]
+
+[node name="EarthGlobe" parent="." instance=ExtResource("3_earth_vis")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -837100, 0)
+radius = 637100.0
 
 [node name="SurfaceBody" type="StaticBody3D" parent="EarthGlobe"]
+
 [node name="CollisionShape3D" type="CollisionShape3D" parent="EarthGlobe/SurfaceBody"]
 shape = SubResource("SphereShape3D_earth")
 
-[node name="Surface" type="MeshInstance3D" parent="EarthGlobe"]
-mesh = SubResource("SphereMesh_earth_surface")
-
-[node name="Clouds" type="MeshInstance3D" parent="EarthGlobe"]
-mesh = SubResource("SphereMesh_earth_clouds")
-
-[node name="Atmosphere" type="MeshInstance3D" parent="EarthGlobe"]
-mesh = SubResource("SphereMesh_earth_atmosphere")
-
-[node name="MoonGlobe" type="Node3D" parent="."]
+[node name="MoonGlobe" parent="." instance=ExtResource("4_moon_vis")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3844000)
+radius = 173740.0
 
 [node name="SurfaceBody" type="StaticBody3D" parent="MoonGlobe"]
+
 [node name="CollisionShape3D" type="CollisionShape3D" parent="MoonGlobe/SurfaceBody"]
 shape = SubResource("SphereShape3D_moon")
 
-[node name="Surface" type="MeshInstance3D" parent="MoonGlobe"]
-mesh = SubResource("SphereMesh_moon")
-
-[node name="Ship" parent="." instance=ExtResource("6_ship")]
+[node name="Ship" parent="." instance=ExtResource("5_ship")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 linear_velocity = Vector3(0, 0, -2182.2)
 
-[node name="HUD" parent="." instance=ExtResource("7_hud")]
+[node name="HUD" parent="." instance=ExtResource("6_hud")]
 ship_path = NodePath("../Ship")

@@ -8,7 +8,8 @@ class_name MainWorld extends Node3D
 @export var cloud_drift_speed: float = 0.003
 @export var sun_inclination_deg: float = 23.44
 
-@onready var sun_light: DirectionalLight3D = get_node_or_null("SunLight")
+@onready var sky_env: SkyEnvironmentVisual = get_node_or_null("SkyEnvironment")
+@onready var sun_light: Node = get_node_or_null("SunLight")
 @onready var world_env: WorldEnvironment = get_node_or_null("WorldEnvironment")
 @onready var earth_globe: Node3D = get_node_or_null("EarthGlobe")
 @onready var moon_globe: Node3D = get_node_or_null("MoonGlobe")
@@ -31,6 +32,13 @@ func _ready() -> void:
 	var scale_cfg = GameScale.get_instance()
 	var earth_def = BodyRegistry.get_body("Earth")
 	var earth_r = scale_cfg.scaled_radius(earth_def.radius_m) if earth_def else 637100.0
+	var moon_def = BodyRegistry.get_body("Moon")
+	var moon_r = scale_cfg.scaled_radius(moon_def.radius_m) if moon_def else 173740.0
+	
+	var sun_ctrl: SunController = sky_env.sun_node if (sky_env and sky_env.sun_node) else (sky_env.get_node_or_null("Sun") as SunController if sky_env else null)
+	if sun_ctrl:
+		sun_ctrl.add_occluder(earth_globe, earth_r)
+		sun_ctrl.add_occluder(moon_globe, moon_r)
 	
 	var sim_clock = get_node_or_null("/root/SimulationClock")
 	var sim_time = sim_clock.sim_time_s if sim_clock else 0.0
@@ -111,8 +119,15 @@ func _update_sun_and_shaders(sim_time: float, earth_pos: DVec3) -> void:
 		var tilt_rad = deg_to_rad(sun_inclination_deg)
 		sun_dir = sun_dir.rotated(Vector3.FORWARD, tilt_rad).normalized()
 		
-	if sun_light:
-		sun_light.look_at_from_position(Vector3.ZERO, -sun_dir, Vector3.UP)
+	if sun_light and sun_light is DirectionalLight3D:
+		(sun_light as DirectionalLight3D).look_at_from_position(Vector3.ZERO, -sun_dir, Vector3.UP)
+		
+	if sky_env:
+		sky_env.set_sun_direction(sun_dir)
+	if earth_globe and earth_globe.has_method("set_sun_direction"):
+		earth_globe.set_sun_direction(sun_dir)
+	if moon_globe and moon_globe.has_method("set_sun_direction"):
+		moon_globe.set_sun_direction(sun_dir)
 		
 	if mat_surface:
 		mat_surface.set_shader_parameter("sun_direction", sun_dir)

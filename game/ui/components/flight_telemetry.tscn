@@ -1,0 +1,138 @@
+[gd_scene load_steps=2 format=3 uid="uid://flt_telemetry_scn_01"]
+
+[ext_resource type="Script" path="res://game/ui/components/flight_telemetry.gd" id="1_tel"]
+
+[node name="FlightTelemetry" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 320.0
+offset_bottom = 240.0
+script = ExtResource("1_tel")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Header" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "FLIGHT TELEMETRY"
+horizontal_alignment = 1
+
+[node name="RowSpeed" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowSpeed"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Speed:"
+
+[node name="SpeedValue" type="Label" parent="Margin/VBox/RowSpeed"]
+layout_mode = 2
+text = "0.0 m/s"
+
+[node name="RowMach" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowMach"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Mach:"
+
+[node name="MachValue" type="Label" parent="Margin/VBox/RowMach"]
+layout_mode = 2
+text = "0.00 M"
+
+[node name="RowAGL" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowAGL"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Alt (AGL):"
+
+[node name="AGLValue" type="Label" parent="Margin/VBox/RowAGL"]
+layout_mode = 2
+text = "0.0 m"
+
+[node name="RowASL" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowASL"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Alt (ASL):"
+
+[node name="ASLValue" type="Label" parent="Margin/VBox/RowASL"]
+layout_mode = 2
+text = "0.0 km"
+
+[node name="RowAp" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowAp"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Apoapsis:"
+
+[node name="ApValue" type="Label" parent="Margin/VBox/RowAp"]
+layout_mode = 2
+text = "-- km"
+
+[node name="RowPe" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowPe"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Periapsis:"
+
+[node name="PeValue" type="Label" parent="Margin/VBox/RowPe"]
+layout_mode = 2
+text = "-- km"
+
+[node name="RowThrottle" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowThrottle"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Throttle:"
+
+[node name="ThrottleValue" type="Label" parent="Margin/VBox/RowThrottle"]
+layout_mode = 2
+text = "0%"
+
+[node name="ThrottleBar" type="ProgressBar" parent="Margin/VBox/RowThrottle"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+size_flags_vertical = 4
+max_value = 100.0
+
+[node name="RowGear" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/VBox/RowGear"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Gear:"
+
+[node name="GearValue" type="Label" parent="Margin/VBox/RowGear"]
+layout_mode = 2
+text = "DEPLOYED"
+
+[node name="StatusLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "NOMINAL FLIGHT"
+horizontal_alignment = 1

@@ -1,4 +1,6 @@
-[gd_scene format=3 uid="uid://c5y1j4l6h1g"]
+[gd_scene load_steps=2 format=3 uid="uid://c5y1j4l6h1g"]
+
+[ext_resource type="Script" path="res://game/ui/components/inventory_menu.gd" id="1_inv"]
 
 [node name="InventoryMenu" type="Control"]
 layout_mode = 3
@@ -7,6 +9,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_inv")
 
 [node name="Panel" type="Panel" parent="."]
 layout_mode = 1
@@ -21,9 +24,13 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = -30.0
+offset_bottom = -30.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 40
 
 [node name="InventorySection" type="VBoxContainer" parent="Panel/HBoxContainer"]
 layout_mode = 2
@@ -31,7 +38,7 @@ size_flags_horizontal = 3
 
 [node name="Label" type="Label" parent="Panel/HBoxContainer/InventorySection"]
 layout_mode = 2
-text = "Inventory"
+text = "CARGO & SUIT INVENTORY"
 horizontal_alignment = 1
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Panel/HBoxContainer/InventorySection"]
@@ -52,17 +59,23 @@ size_flags_horizontal = 3
 
 [node name="Label" type="Label" parent="Panel/HBoxContainer/CraftingSection"]
 layout_mode = 2
-text = "Crafting"
+text = "ITEM INSPECTION"
 horizontal_alignment = 1
 
-[node name="ScrollContainer" type="ScrollContainer" parent="Panel/HBoxContainer/CraftingSection"]
+[node name="ItemDetails" type="VBoxContainer" parent="Panel/HBoxContainer/CraftingSection"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 15
 
-[node name="CraftingGrid" type="GridContainer" parent="Panel/HBoxContainer/CraftingSection/ScrollContainer"]
+[node name="NameLabel" type="Label" parent="Panel/HBoxContainer/CraftingSection/ItemDetails"]
 layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/h_separation = 10
-theme_override_constants/v_separation = 10
-columns = 2
+text = "No Item Selected"
+
+[node name="DescLabel" type="Label" parent="Panel/HBoxContainer/CraftingSection/ItemDetails"]
+layout_mode = 2
+text = "Select an item in your inventory."
+autowrap_mode = 2
+
+[node name="CountLabel" type="Label" parent="Panel/HBoxContainer/CraftingSection/ItemDetails"]
+layout_mode = 2
+text = "Quantity: 0"

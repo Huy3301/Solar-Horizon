@@ -6,6 +6,8 @@ PASS: res://tests/core/test_core.gd::test_universe_position_carry
 PASS: res://tests/core/test_core.gd::test_universe_position_difference
 PASS: res://tests/core/test_core.gd::test_gamescale_period
 PASS: res://tests/core/test_core.gd::test_simulation_clock
+PASS: res://tests/core/test_flight.gd::test_ship_sim_time_advances
+PASS: res://tests/core/test_flight.gd::test_game_manager_transition_and_orbit
 PASS: res://tests/planet/test_planet_quadtree.gd::test_spherified_cube_mapping
 PASS: res://tests/planet/test_planet_quadtree.gd::test_cpu_noise_deterministic
 PASS: res://tests/planet/test_planet_quadtree.gd::test_quadtree_split
@@ -17,6 +19,7 @@ WARNING: GPU heights unavailable (no RenderingDevice). Falling back to CPU/analy
        [2] test_rapid_camera_movement (res://tests/planet/test_planet_streaming.gd:5)
        [3] _init (res://tests/run_tests.gd:28)
 PASS: res://tests/planet/test_planet_streaming.gd::test_rapid_camera_movement
+PASS: res://tests/smoke/test_main_scene_loads.gd::test_main_scene_loads
 PASS: res://tests/universe/test_universe.gd::test_kepler_solver
 PASS: res://tests/universe/test_universe.gd::test_round_trip
 PASS: res://tests/universe/test_universe.gd::test_circular_orbit_period
@@ -26,7 +29,7 @@ PASS: res://tests/universe/test_universe.gd::test_dominant_body
 PASS: res://tests/universe/test_universe.gd::test_shim_solar_system_data
 PASS: res://tests/universe/test_universe.gd::test_old_calculate_orbit
 ---
-Tests: 17 passed / 17 total
+Tests: 20 passed / 20 total
 WARNING: 3 ObjectDB instances were leaked at exit (run with `--verbose` for details).
    at: cleanup (core/object/object.cpp:2536)
 ERROR: 1 resources still in use at exit (run with --verbose for details).

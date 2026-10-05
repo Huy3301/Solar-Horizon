@@ -12,14 +12,13 @@ func test_main_scene_slice_hierarchy() -> void:
 	var world = scene_res.instantiate() as MainWorld
 	assert_true(world != null, "main.tscn instantiates as MainWorld")
 
-	var loop = Engine.get_main_loop()
-	if loop and "root" in loop and loop.root != null:
-		loop.root.add_child(world)
-	else:
-		world._ready()
-		var b = world.get_node_or_null("GameBootstrap") as GameBootstrap
-		if b:
-			b._ready()
+	var target_root = tree.root if (tree and tree.root != null) else null
+	if target_root:
+		target_root.add_child(world)
+	world._ready()
+	var b = world.get_node_or_null("GameBootstrap") as GameBootstrap
+	if b and b.get_inventory() == null:
+		b._ready()
 
 	# Verify essential nodes
 	var ship = world.get_node_or_null("Ship") as ShipFlightController
@@ -62,14 +61,13 @@ func test_slice_gameplay_and_persistence() -> void:
 	var scene_res = load("res://scenes/main.tscn") as PackedScene
 	var world = scene_res.instantiate() as MainWorld
 
-	var loop = Engine.get_main_loop()
-	if loop and "root" in loop and loop.root != null:
-		loop.root.add_child(world)
-	else:
-		world._ready()
-		var b = world.get_node_or_null("GameBootstrap") as GameBootstrap
-		if b:
-			b._ready()
+	var target_root = tree.root if (tree and tree.root != null) else null
+	if target_root:
+		target_root.add_child(world)
+	world._ready()
+	var b = world.get_node_or_null("GameBootstrap") as GameBootstrap
+	if b and b.get_inventory() == null:
+		b._ready()
 
 	var ship = world.get_node_or_null("Ship") as ShipFlightController
 	var bootstrap = world.get_node_or_null("GameBootstrap") as GameBootstrap

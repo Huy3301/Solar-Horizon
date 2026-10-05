@@ -22,6 +22,7 @@ func _init() -> void:
 		var inst = script.new()
 		if not inst is TestCase:
 			continue
+		inst.tree = self
 			
 		for method in inst.get_method_list():
 			var name = method["name"]

@@ -1,5 +1,6 @@
 class_name TestCase extends RefCounted
 
+var tree: SceneTree = null
 var _failures: Array[String] = []
 
 func get_failures() -> Array[String]:

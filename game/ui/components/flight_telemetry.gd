@@ -85,15 +85,28 @@ func update_telemetry(data: Dictionary) -> void:
 			label_gear.modulate = Color(0.7, 0.7, 0.7)
 			
 	if label_status:
-		if is_crashed:
+		var regime_name: String = str(data.get("flight_regime", ""))
+		var speed_limit: float = data.get("speed_limit_ms", 3200.0)
+		var pulse_active: bool = data.get("pulse_drive_active", false)
+		
+		if data.has("status"):
+			label_status.text = str(data["status"])
+			label_status.modulate = Color(0.9, 0.95, 1.0)
+		elif is_crashed:
 			label_status.text = "CRITICAL DAMAGE"
 			label_status.modulate = Color.RED
 		elif is_landed:
 			label_status.text = "VESSEL LANDED"
 			label_status.modulate = Color(0.2, 1.0, 0.4)
+		elif pulse_active:
+			label_status.text = "PULSE DRIVE ENGAGED"
+			label_status.modulate = Color(0.2, 0.85, 1.0)
+		elif not regime_name.is_empty():
+			label_status.text = "[%s] LIMIT %.0f m/s" % [regime_name, speed_limit]
+			label_status.modulate = Color(0.9, 0.95, 1.0)
 		else:
 			label_status.text = "NOMINAL FLIGHT"
-			label_status.modulate = Color.WHITE
+			label_status.modulate = Color(0.9, 0.95, 1.0)
 
 func get_telemetry_value(key: String, default_val: Variant = null) -> Variant:
 	return current_telemetry.get(key, default_val)

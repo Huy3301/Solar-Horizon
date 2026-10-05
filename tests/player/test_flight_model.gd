@@ -102,3 +102,37 @@ func test_agl_radar_calculation() -> void:
 	# When no radar ray is colliding, falls back to ASL
 	var agl_no_ray = FlightModel.calculate_agl(global_pos, planet_up, alt_asl, null)
 	assert_almost_eq(agl_no_ray, 500.0, 1e-4, "AGL falls back to ASL when radar ray is null")
+
+func test_tiered_speed_limits_and_pulse_drive() -> void:
+	# 1. Regime transitions by altitude
+	var regime_surface = FlightModel.determine_flight_regime(500.0, false)
+	assert_eq(regime_surface, FlightModel.FlightRegime.ATMOSPHERIC, "Altitude < 15km is ATMOSPHERIC")
+	
+	var regime_leo = FlightModel.determine_flight_regime(80000.0, false)
+	assert_eq(regime_leo, FlightModel.FlightRegime.LOW_ORBIT, "Altitude 80km is LOW_ORBIT")
+	
+	var regime_space = FlightModel.determine_flight_regime(300000.0, false)
+	assert_eq(regime_space, FlightModel.FlightRegime.DEEP_SPACE, "Altitude 300km without pulse is DEEP_SPACE")
+	
+	var regime_pulse = FlightModel.determine_flight_regime(300000.0, true)
+	assert_eq(regime_pulse, FlightModel.FlightRegime.PULSE_DRIVE, "Altitude 300km with pulse is PULSE_DRIVE")
+	
+	# Pulse drive requested inside atmosphere or LEO must not trigger pulse regime
+	var regime_pulse_denied = FlightModel.determine_flight_regime(10000.0, true)
+	assert_eq(regime_pulse_denied, FlightModel.FlightRegime.ATMOSPHERIC, "Pulse ignored in atmospheric regime")
+	
+	# 2. Speed limits
+	assert_almost_eq(FlightModel.get_regime_speed_limit(FlightModel.FlightRegime.ATMOSPHERIC, false), 350.0, 1e-3, "Atmosphere cruise limit 350 m/s")
+	assert_almost_eq(FlightModel.get_regime_speed_limit(FlightModel.FlightRegime.ATMOSPHERIC, true), 850.0, 1e-3, "Atmosphere boost limit 850 m/s")
+	assert_almost_eq(FlightModel.get_regime_speed_limit(FlightModel.FlightRegime.LOW_ORBIT), 3200.0, 1e-3, "Low orbit limit 3200 m/s")
+	assert_almost_eq(FlightModel.get_regime_speed_limit(FlightModel.FlightRegime.DEEP_SPACE), 8000.0, 1e-3, "Deep space limit 8000 m/s")
+	assert_almost_eq(FlightModel.get_regime_speed_limit(FlightModel.FlightRegime.PULSE_DRIVE), 35000.0, 1e-3, "Pulse drive limit 35000 m/s")
+	
+	# 3. Pulse drive engagement proximity rules
+	assert_false(FlightModel.can_engage_pulse_drive(30000.0, 100000.0), "Pulse denied below 50km altitude")
+	assert_false(FlightModel.can_engage_pulse_drive(80000.0, 45000.0), "Pulse denied when near body proximity < 60km")
+	assert_true(FlightModel.can_engage_pulse_drive(80000.0, 120000.0), "Pulse allowed above 50km and clear of bodies")
+	
+	# 4. Display labels
+	assert_eq(FlightModel.get_regime_name(FlightModel.FlightRegime.ATMOSPHERIC), "ATMOSPHERE", "Atmosphere display label")
+	assert_eq(FlightModel.get_regime_name(FlightModel.FlightRegime.PULSE_DRIVE), "PULSE DRIVE", "Pulse drive display label")

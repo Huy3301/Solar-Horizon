@@ -46,6 +46,11 @@ var is_landed: bool = false
 var is_crashed: bool = false
 var rcs_active: bool = false
 
+var flight_regime: int = FlightModel.FlightRegime.LOW_ORBIT
+var current_speed_limit: float = FlightModel.SPEED_LIMIT_LOW_ORBIT
+var pulse_drive_active: bool = false
+var is_boosting: bool = false
+
 var control_pitch: float = 0.0
 var control_roll: float = 0.0
 var control_yaw: float = 0.0
@@ -117,6 +122,14 @@ func _physics_process(delta: float) -> void:
 	var planet_up = to_ship.normalized() if r_dist > 1.0 else Vector3.UP
 	var altitude_asl = r_dist - planet_radius
 	
+	# Determine Flight Regime (Atmosphere, Low Earth Orbit, Deep Space, Pulse Drive)
+	flight_regime = FlightModel.determine_flight_regime(altitude_asl, pulse_drive_active)
+	
+	# Proximity safety check for Pulse Drive (auto-disengage within 50 km or atmosphere)
+	if pulse_drive_active:
+		if not FlightModel.can_engage_pulse_drive(altitude_asl, altitude_asl):
+			disengage_pulse_drive("Proximity safety: Disengaged pulse drive near planetary body.")
+	
 	# Gravity from dominant body only (B-02 fix)
 	var grav_acc = GravityService.gravity_accel(ship_pos, sim_time)
 	var g_local = grav_acc.length()
@@ -127,6 +140,8 @@ func _physics_process(delta: float) -> void:
 	var up_dir: Vector3 = global_transform.basis.y.normalized()
 	
 	var thrust_amount: float = 0.0 if is_crashed else current_throttle * max_main_thrust
+	if pulse_drive_active and not is_crashed:
+		thrust_amount = max_main_thrust * 5.0 # Sub-light cruise acceleration
 	var thrust_force: Vector3 = forward_dir * thrust_amount
 	apply_central_force(thrust_force)
 	
@@ -143,6 +158,15 @@ func _physics_process(delta: float) -> void:
 	var velocity: Vector3 = linear_velocity
 	var speed: float = velocity.length()
 	
+	# Tiered speed regulation per regime (No Man's Sky flight speed limits)
+	current_speed_limit = FlightModel.get_regime_speed_limit(flight_regime, is_boosting)
+	if flight_model == FlightModelMode.ASSISTED and not is_crashed:
+		if speed > current_speed_limit:
+			var excess_speed = speed - current_speed_limit
+			var damp_force = -velocity.normalized() * (excess_speed * mass * 2.5)
+			apply_central_force(damp_force)
+			non_grav_force += damp_force
+	
 	# Scale-height atmospheric aerodynamics (B-05 fix)
 	var air_density: float = FlightModel.calculate_air_density(altitude_asl, dom_def, scale_cfg.radius_scale)
 	var vel_dir: Vector3 = velocity.normalized() if speed > 0.1 else forward_dir
@@ -158,7 +182,7 @@ func _physics_process(delta: float) -> void:
 	
 	# Attitude controls with inertia scaling (B-05 fix)
 	_apply_attitude_controls(dynamic_pressure)
-	_update_engine_plumes(current_throttle)
+	_update_engine_plumes(1.0 if pulse_drive_active else current_throttle)
 	
 	# Collision-based landing evaluation (B-04 fix)
 	_evaluate_surface_contact(planet_up, altitude_agl)
@@ -188,6 +212,10 @@ func _handle_inputs(delta: float) -> void:
 		
 	brakes_engaged = Input.is_action_pressed("brake")
 	control_vtol = Input.get_action_strength("vtol_up")
+	is_boosting = Input.is_action_pressed("boost") or Input.is_action_pressed("sprint")
+	
+	if Input.is_action_just_pressed("pulse_drive") or Input.is_action_just_pressed("space_cruise"):
+		toggle_pulse_drive()
 
 func _update_throttle(delta: float) -> void:
 	current_throttle = move_toward(current_throttle, target_throttle, (1.0 / throttle_spool_rate) * delta)
@@ -359,7 +387,46 @@ func _update_telemetry(alt_asl: float, alt_agl: float, speed: float, q: float, r
 		"pe_km": orbit.periapsis_alt / 1000.0,
 		"eccentricity": orbit.eccentricity,
 		"period_min": orbit.period_seconds / 60.0,
-		"inclination_deg": rad_to_deg(orbit.inclination_rad)
+		"inclination_deg": rad_to_deg(orbit.inclination_rad),
+		"flight_regime": FlightModel.get_regime_name(flight_regime),
+		"flight_regime_id": flight_regime,
+		"speed_limit_ms": current_speed_limit,
+		"pulse_drive_active": pulse_drive_active,
+		"pulse_drive_available": FlightModel.can_engage_pulse_drive(alt_asl, alt_asl)
 	}
 	
 	flight_data_updated.emit(telemetry_data)
+
+func toggle_pulse_drive() -> bool:
+	if pulse_drive_active:
+		disengage_pulse_drive("Pulse drive disengaged by pilot.")
+		return false
+	else:
+		return engage_pulse_drive()
+
+func engage_pulse_drive() -> bool:
+	var ship_pos: DVec3 = _get_universe_pos()
+	var dom_id = GravityService.dominant_body(ship_pos, sim_time)
+	var dom_pos = GravityService.body_position(dom_id, sim_time)
+	var dom_def = BodyRegistry.get_body(dom_id)
+	var planet_radius = GameScale.get_instance().scaled_radius(dom_def.radius_m) if dom_def else 637100.0
+	var alt_asl = ship_pos.sub(dom_pos).length() - planet_radius
+	
+	if not FlightModel.can_engage_pulse_drive(alt_asl, alt_asl):
+		var audio_mgr = get_node_or_null("/root/AudioManager")
+		if audio_mgr and audio_mgr.has_method("play_alert"):
+			audio_mgr.play_alert("terrain_warning")
+		return false
+		
+	pulse_drive_active = true
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr and audio_mgr.has_method("play_alert"):
+		audio_mgr.play_alert("pulse_engage")
+	return true
+
+func disengage_pulse_drive(reason: String = "") -> void:
+	if pulse_drive_active:
+		pulse_drive_active = false
+		var audio_mgr = get_node_or_null("/root/AudioManager")
+		if audio_mgr and audio_mgr.has_method("play_alert"):
+			audio_mgr.play_alert("overspeed")

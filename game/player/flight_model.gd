@@ -15,11 +15,71 @@ enum LandingState {
 	CRASH = 2
 }
 
+enum FlightRegime {
+	ATMOSPHERIC = 0,
+	LOW_ORBIT = 1,
+	DEEP_SPACE = 2,
+	PULSE_DRIVE = 3
+}
+
+# No Man's Sky-style tiered speed limits across flight regimes
+const SPEED_LIMIT_ATMOSPHERE_CRUISE: float = 350.0  # m/s atmospheric cruise (Mach ~1.0)
+const SPEED_LIMIT_ATMOSPHERE_BOOST: float = 850.0   # m/s atmospheric boost (Mach ~2.5)
+const SPEED_LIMIT_LOW_ORBIT: float = 3200.0         # m/s LEO orbital insertion limit (v_circ ~2182 m/s)
+const SPEED_LIMIT_DEEP_SPACE: float = 8000.0        # m/s free deep space flight
+const SPEED_LIMIT_PULSE_DRIVE: float = 35000.0      # m/s sub-light interplanetary pulse drive
+
+const PULSE_DRIVE_MIN_ALTITUDE_M: float = 50000.0   # Proximity ceiling: disengages below 50 km ASL
+const PULSE_DRIVE_PROXIMITY_M: float = 60000.0      # Proximity radius from any planetary body
+
 const TOUCHDOWN_MAX_VSPEED: float = 10.0 # m/s vertical descent limit
 const TOUCHDOWN_MAX_HSPEED: float = 15.0 # m/s horizontal touchdown limit
 const TOUCHDOWN_MAX_TILT_DEG: float = 25.0 # degrees max tilt from planet normal
 const SEA_LEVEL_DENSITY: float = 1.225 # kg/m^3
 const DEFAULT_SCALE_HEIGHT_M: float = 850.0 # 1:10 scaled Earth scale height (8500m * 0.1)
+
+## Determines active flight regime based on altitude ASL and pulse drive request
+static func determine_flight_regime(altitude_asl: float, is_pulse_drive: bool) -> int:
+	if altitude_asl < 15000.0:
+		return FlightRegime.ATMOSPHERIC
+	elif altitude_asl < 150000.0:
+		return FlightRegime.LOW_ORBIT
+	elif is_pulse_drive:
+		return FlightRegime.PULSE_DRIVE
+	else:
+		return FlightRegime.DEEP_SPACE
+
+## Returns current effective speed limit in m/s for regime
+static func get_regime_speed_limit(regime: int, is_boosting: bool = false) -> float:
+	match regime:
+		FlightRegime.ATMOSPHERIC:
+			return SPEED_LIMIT_ATMOSPHERE_BOOST if is_boosting else SPEED_LIMIT_ATMOSPHERE_CRUISE
+		FlightRegime.LOW_ORBIT:
+			return SPEED_LIMIT_LOW_ORBIT
+		FlightRegime.DEEP_SPACE:
+			return SPEED_LIMIT_DEEP_SPACE
+		FlightRegime.PULSE_DRIVE:
+			return SPEED_LIMIT_PULSE_DRIVE
+		_:
+			return SPEED_LIMIT_LOW_ORBIT
+
+## Checks if pulse drive can be engaged safely clear of planets
+static func can_engage_pulse_drive(altitude_asl: float, nearest_body_dist_asl: float = 1e9) -> bool:
+	return altitude_asl >= PULSE_DRIVE_MIN_ALTITUDE_M and nearest_body_dist_asl >= PULSE_DRIVE_PROXIMITY_M
+
+## Returns readable regime display string for HUD
+static func get_regime_name(regime: int) -> String:
+	match regime:
+		FlightRegime.ATMOSPHERIC:
+			return "ATMOSPHERE"
+		FlightRegime.LOW_ORBIT:
+			return "LOW ORBIT"
+		FlightRegime.DEEP_SPACE:
+			return "DEEP SPACE"
+		FlightRegime.PULSE_DRIVE:
+			return "PULSE DRIVE"
+		_:
+			return "NOMINAL"
 
 ## Computes barometric scale-height air density: rho = rho0 * exp(-h / H)
 static func calculate_air_density(altitude_asl: float, body_def: CelestialBodyDef, radius_scale: float = 0.1) -> float:

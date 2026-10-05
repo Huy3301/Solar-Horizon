@@ -100,10 +100,21 @@ void fragment() {
 		float airglow_rim = pow(1.0 - v_dot_n, 8.5) * airglow_intensity;
 		vec3 airglow = airglow_green_color * airglow_rim * (0.3 + 0.7 * night_weight);
 
+		// Forward solar corona flare on the limb when sun is behind Earth (orbital sunrise/sunset)
+		float sun_limb_alignment = max(0.0, cos_theta);
+		float limb_corona = pow(sun_limb_alignment, 28.0) * pow(1.0 - v_dot_n, 2.2) * smoothstep(-0.35, 0.15, n_dot_l);
+		vec3 corona_color = mix(vec3(1.0, 0.52, 0.12), vec3(1.0, 0.98, 0.92), smoothstep(0.0, 0.25, n_dot_l));
+
+		// Altitude-adaptive inner disk haze for seamless low-orbit aerial perspective
+		float inner_disk_haze = pow(1.0 - v_dot_n, 1.8) * 0.22 * day_weight;
+		vec3 inner_haze_color = rayleigh_day_color * inner_disk_haze;
+
 		// Final atmospheric radiance composition
 		vec3 final_color = scatter_color * r_phase * total_rim * atmosphere_density * (day_weight + sunset_weight * 1.6);
 		final_color += vec3(1.0, 0.94, 0.85) * mie_glow * total_rim;
 		final_color += airglow;
+		final_color += corona_color * limb_corona * 2.8;
+		final_color += inner_haze_color;
 		final_color *= sun_intensity;
 
 		ALBEDO = final_color;

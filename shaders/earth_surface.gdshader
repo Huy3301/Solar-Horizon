@@ -104,16 +104,22 @@ void fragment() {
 	
 	// Apply sunlight extinction and cloud shadows
 	surface_rgb *= sun_tint * (1.0 - cloud_shadow);
+
+	// Terminator twilight scattering band (grazing sunlight in dense lower atmosphere)
+	float terminator_band = smoothstep(-0.12, 0.02, n_dot_l) * (1.0 - smoothstep(0.02, 0.16, n_dot_l));
+	vec3 twilight_glow = vec3(1.0, 0.35, 0.08) * terminator_band * 0.45;
+	surface_rgb += twilight_glow * (1.0 - cloud_shadow * 0.5);
 	
-	// Ocean solar specular glint (blinding realistic sun reflection on water)
+	// Ocean solar specular glint (triple-lobe realistic sunglint track across curved water)
 	if (is_water > 0.15) {
 		vec3 H = normalize(L + V);
 		float n_dot_h = max(0.0, dot(N, H));
-		float glint_core = pow(n_dot_h, 320.0) * 12.0;
-		float glint_broad = pow(n_dot_h, 24.0) * 0.45;
+		float glint_core = pow(n_dot_h, 380.0) * 14.0;
+		float glint_mid = pow(n_dot_h, 75.0) * 1.8;
+		float glint_broad = pow(n_dot_h, 20.0) * 0.55;
 		float v_dot_h = max(0.0, dot(V, H));
 		float fresnel = 0.02 + 0.98 * pow(1.0 - v_dot_h, 5.0);
-		vec3 glint = (glint_core + glint_broad) * sun_tint * fresnel * is_water * (1.0 - cloud_shadow);
+		vec3 glint = (glint_core + glint_mid + glint_broad) * sun_tint * fresnel * is_water * (1.0 - cloud_shadow);
 		surface_rgb += glint;
 	}
 	

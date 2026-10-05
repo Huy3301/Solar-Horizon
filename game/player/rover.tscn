@@ -1,0 +1,104 @@
+[gd_scene load_steps=5 format=3 uid="uid://c7m2rover_vehicle_01"]
+
+[ext_resource type="Script" path="res://game/player/rover_controller.gd" id="1_rover_ctrl"]
+[ext_resource type="PackedScene" path="res://assets/models/vehicles/rover/rover.glb" id="2_rover_model"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_chassis"]
+size = Vector3(2.1, 0.9, 3.4)
+
+[node name="Rover" type="VehicleBody3D"]
+mass = 210.0
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, -0.15, 0)
+script = ExtResource("1_rover_ctrl")
+
+[node name="ChassisCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+shape = SubResource("BoxShape3D_chassis")
+
+[node name="Wheel_FL" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.92, -0.15, -1.15)
+use_as_traction = true
+use_as_steering = true
+wheel_radius = 0.41
+wheel_rest_length = 0.15
+wheel_friction_slip = 1.6
+suspension_travel = 0.25
+suspension_stiffness = 25.0
+suspension_max_force = 4000.0
+damping_compression = 1.2
+damping_relaxation = 1.5
+
+[node name="Wheel_FR" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.92, -0.15, -1.15)
+use_as_traction = true
+use_as_steering = true
+wheel_radius = 0.41
+wheel_rest_length = 0.15
+wheel_friction_slip = 1.6
+suspension_travel = 0.25
+suspension_stiffness = 25.0
+suspension_max_force = 4000.0
+damping_compression = 1.2
+damping_relaxation = 1.5
+
+[node name="Wheel_RL" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.92, -0.15, 1.15)
+use_as_traction = true
+use_as_steering = false
+wheel_radius = 0.41
+wheel_rest_length = 0.15
+wheel_friction_slip = 1.6
+suspension_travel = 0.25
+suspension_stiffness = 25.0
+suspension_max_force = 4000.0
+damping_compression = 1.2
+damping_relaxation = 1.5
+
+[node name="Wheel_RR" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.92, -0.15, 1.15)
+use_as_traction = true
+use_as_steering = false
+wheel_radius = 0.41
+wheel_rest_length = 0.15
+wheel_friction_slip = 1.6
+suspension_travel = 0.25
+suspension_stiffness = 25.0
+suspension_max_force = 4000.0
+damping_compression = 1.2
+damping_relaxation = 1.5
+
+[node name="Headlight_L" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.05, -1.65)
+visible = false
+light_color = Color(1, 0.95, 0.85, 1)
+light_energy = 3.5
+spot_range = 45.0
+spot_angle = 38.0
+
+[node name="Headlight_R" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 0.05, -1.65)
+visible = false
+light_color = Color(1, 0.95, 0.85, 1)
+light_energy = 3.5
+spot_range = 45.0
+spot_angle = 38.0
+
+[node name="DriverSeat" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.32, 0.25, -0.15)
+
+[node name="ExitPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 0.2, 0)
+
+[node name="RoverModel" parent="." instance=ExtResource("2_rover_model")]
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0.5, 0)
+spring_length = 5.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
+fov = 70.0

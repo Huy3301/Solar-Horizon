@@ -129,6 +129,17 @@ func test_lander_sockets() -> void:
 		assert_true(lander.get_node_or_null("LunarLander_LOD0") != null, "Lander has LunarLander_LOD0")
 		assert_true(lander.get_node_or_null("LunarLander_LOD1") != null, "Lander has LunarLander_LOD1")
 
+		# Verify Rover presence in Showroom
+		var rover = gallery.get_node_or_null("Showroom/RoverInstance") as Node3D
+		assert_true(rover != null, "RoverInstance present in showroom")
+		if rover:
+			assert_true(rover.get_node_or_null("SOCKET_cargo") != null, "Rover has SOCKET_cargo")
+			assert_true(rover.get_node_or_null("SOCKET_seat_driver") != null, "Rover has SOCKET_seat_driver")
+			assert_true(rover.get_node_or_null("SOCKET_headlight_L") != null, "Rover has SOCKET_headlight_L")
+			assert_true(rover.get_node_or_null("SOCKET_wheel_FL") != null, "Rover has SOCKET_wheel_FL")
+			assert_true(rover.get_node_or_null("Rover_LOD0") != null, "Rover has Rover_LOD0")
+			assert_true(rover.get_node_or_null("Rover_LOD1") != null, "Rover has Rover_LOD1")
+
 	gallery.free()
 
 func test_gallery_controls_and_hud() -> void:
@@ -166,6 +177,14 @@ func test_gallery_controls_and_hud() -> void:
 	gallery._unhandled_input(ev2)
 	assert_almost_eq(gallery.target_pivot_pos.x, 14.0, 0.1, "Focusing lander sets pivot X to 14")
 	assert_almost_eq(gallery.camera_distance, 12.0, 0.1, "Focusing lander sets camera distance to 12")
+
+	# Test Focus Lunar Rover (Key 3)
+	var ev3 = InputEventKey.new()
+	ev3.keycode = KEY_3
+	ev3.pressed = true
+	gallery._unhandled_input(ev3)
+	assert_almost_eq(gallery.target_pivot_pos.x, -12.0, 0.1, "Focusing rover sets pivot X to -12")
+	assert_almost_eq(gallery.camera_distance, 6.0, 0.1, "Focusing rover sets camera distance to 6")
 
 	# Test Toggle Turntable Auto-rotate (Space)
 	var initial_auto = gallery.auto_rotate

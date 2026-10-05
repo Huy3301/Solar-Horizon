@@ -1,8 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/dev/model_gallery.gd" id="1_gallery"]
 [ext_resource type="PackedScene" path="res://assets/models/ships/orbiter/orbiter.glb" id="2_orbiter_glb"]
 [ext_resource type="PackedScene" path="res://assets/models/ships/lunar_lander/lunar_lander.glb" id="3_lander_glb"]
+[ext_resource type="PackedScene" path="res://assets/models/vehicles/rover/rover.glb" id="4_rover_glb"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
 albedo_color = Color(0.12, 0.13, 0.15, 1)
@@ -66,6 +67,12 @@ transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 14, 0, 0)
 [node name="COL_hull" parent="Showroom/LanderInstance" index="0"]
 visible = false
 
+[node name="RoverInstance" parent="Showroom" instance=ExtResource("4_rover_glb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0.45, 0)
+
+[node name="COL_chassis" parent="Showroom/RoverInstance" index="0"]
+visible = false
+
 [node name="CameraPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 
@@ -84,5 +91,5 @@ offset_bottom = 120.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 3
 text = "=== SOLAR HORIZON — SPACECRAFT SHOWROOM ===
-[1] Focus Orbiter   [2] Focus Lunar Lander   [G] Toggle Gear
+[1] Focus Orbiter   [2] Focus Lander   [3] Focus Rover   [G] Toggle Gear
 [Space] Toggle Turntable   [Mouse Drag] Orbit   [Wheel] Zoom"

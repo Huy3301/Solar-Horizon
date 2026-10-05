@@ -10,20 +10,20 @@
 [sub_resource type="SphereMesh" id="SphereMesh_surface"]
 radius = 637100.0
 height = 1274200.0
-radial_segments = 128
-rings = 64
+radial_segments = 256
+rings = 128
 
 [sub_resource type="SphereMesh" id="SphereMesh_clouds"]
 radius = 638600.0
 height = 1277200.0
-radial_segments = 128
-rings = 64
+radial_segments = 256
+rings = 128
 
 [sub_resource type="SphereMesh" id="SphereMesh_atmosphere"]
 radius = 646100.0
 height = 1292200.0
-radial_segments = 128
-rings = 64
+radial_segments = 256
+rings = 128
 
 [node name="EarthVisual" type="Node3D"]
 script = ExtResource("1_vis")

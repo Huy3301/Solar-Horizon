@@ -40,7 +40,11 @@ func local_to_universe(pos: Vector3) -> UniversePosition:
 func universe_to_local(up: UniversePosition) -> Vector3:
 	return origin.difference_to(up).to_vector3()
 
-func _process(_delta: float) -> void:
+func _ready() -> void:
+	if OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios"):
+		threshold_m = 2000.0
+
+func _physics_process(_delta: float) -> void:
 	check_and_shift()
 
 func check_and_shift() -> bool:
@@ -59,7 +63,7 @@ func check_and_shift() -> bool:
 		return false
 		
 	var pos = target.global_position if target.is_inside_tree() else target.position
-	if pos.length() > threshold_m:
+	if pos.length() >= (threshold_m + hysteresis_margin_m):
 		var shift_vec = DVec3.from_vector3(pos)
 		_shift_origin(shift_vec)
 		return true
@@ -119,7 +123,36 @@ func _shift_node_recursive(node: Node3D, shift_v3: Vector3, shifted_node_ids: Di
 		return
 	shifted_node_ids[nid] = true
 	
-	if is_root_child or node.top_level:
+	# Check if node has a UniversePosition anchor to re-anchor cleanly from origin without precision loss
+	var up_anchor: UniversePosition = null
+	if "universe_position" in node and node.universe_position is UniversePosition:
+		up_anchor = node.universe_position
+	elif "universe_pos" in node and node.universe_pos is UniversePosition:
+		up_anchor = node.universe_pos
+	elif "planet_universe_pos" in node and node.planet_universe_pos is UniversePosition:
+		up_anchor = node.planet_universe_pos
+	elif node.has_method("get_universe_position") and node.get_universe_position() is UniversePosition:
+		up_anchor = node.get_universe_position()
+
+	if up_anchor != null:
+		var target_local = universe_to_local(up_anchor)
+		if node is RigidBody3D:
+			var rid = node.get_rid()
+			var t = node.global_transform
+			t.origin = target_local
+			var lv = PhysicsServer3D.body_get_state(rid, PhysicsServer3D.BODY_STATE_LINEAR_VELOCITY)
+			var av = PhysicsServer3D.body_get_state(rid, PhysicsServer3D.BODY_STATE_ANGULAR_VELOCITY)
+			PhysicsServer3D.body_set_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM, t)
+			PhysicsServer3D.body_set_state(rid, PhysicsServer3D.BODY_STATE_LINEAR_VELOCITY, lv)
+			PhysicsServer3D.body_set_state(rid, PhysicsServer3D.BODY_STATE_ANGULAR_VELOCITY, av)
+			node.global_transform = t
+		else:
+			if node.is_inside_tree():
+				node.global_position = target_local
+			else:
+				node.position = target_local
+		node.reset_physics_interpolation()
+	elif is_root_child or node.top_level:
 		if node is RigidBody3D:
 			_shift_rigid_body(node, shift_v3)
 		else:
@@ -139,9 +172,13 @@ func _shift_node_recursive(node: Node3D, shift_v3: Vector3, shifted_node_ids: Di
 			node.reset_physics_interpolation()
 			
 	if not notified_nodes.has(nid):
+		notified_nodes[nid] = true
 		if node.has_method("on_origin_shifted"):
-			notified_nodes[nid] = true
 			node.on_origin_shifted(shift)
+		elif node.has_method("shift_origin"):
+			node.shift_origin(shift)
+		if node.has_method("reanchor"):
+			node.reanchor(origin)
 			
 	for child in node.get_children():
 		if child is Node3D:

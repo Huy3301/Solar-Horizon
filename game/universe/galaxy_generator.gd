@@ -1,6 +1,8 @@
 class_name GalaxyGenerator extends RefCounted
 ## Maps sector coordinates to star presence.
 
+const STAR_DENSITY_PER_MILLE: int = 8
+
 var seed: int = 0
 
 func _init(p_seed: int = 0) -> void:
@@ -21,9 +23,9 @@ func _hash_sector(sector: Vector3i) -> int:
 
 ## Determines if a star exists in the given sector.
 func has_star(sector: Vector3i) -> bool:
-	# E.g. ~10% of sectors have a star
+	# Realistic solar neighbourhood density (~0.008 stars/ly^3)
 	var h = _hash_sector(sector)
-	return (h % 100) < 10
+	return (h % 1000) < STAR_DENSITY_PER_MILLE
 
 ## Returns the star system seed if it exists, otherwise 0
 func get_star_seed(sector: Vector3i) -> int:

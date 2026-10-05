@@ -253,3 +253,110 @@ static func generate_trajectory_path(orbit: OrbitElements, num_segments: int = 1
 	for s in samples:
 		points.append(s.to_vector3())
 	return points
+
+# Universal-Variable Kepler Propagator & Stumpff Functions
+static func stumpff_c2(z: float) -> float:
+	if z > 1e-5:
+		var sq = sqrt(z)
+		return (1.0 - cos(sq)) / z
+	elif z < -1e-5:
+		var sq = sqrt(-z)
+		return (cosh(sq) - 1.0) / (-z)
+	else:
+		return 0.5 - z / 24.0 + (z * z) / 720.0 - (z * z * z) / 40320.0 + (z * z * z * z) / 3628800.0
+
+static func stumpff_c3(z: float) -> float:
+	if z > 1e-5:
+		var sq = sqrt(z)
+		return (sq - sin(sq)) / (z * sq)
+	elif z < -1e-5:
+		var sq = sqrt(-z)
+		return (sinh(sq) - sq) / ((-z) * sq)
+	else:
+		return 1.0 / 6.0 - z / 120.0 + (z * z) / 5040.0 - (z * z * z) / 362880.0 + (z * z * z * z) / 39916800.0
+
+static func propagate_universal(r0: DVec3, v0: DVec3, dt: float, mu: float = DEFAULT_MU) -> Array:
+	if abs(dt) < 1e-15:
+		return [r0, v0]
+		
+	var r0_mag = r0.length()
+	if r0_mag < 1e-6:
+		return [r0, v0]
+		
+	var v0_mag = v0.length()
+	var r0_dot_v0 = r0.dot(v0)
+	var sqrt_mu = sqrt(mu)
+	
+	# Reciprocal of semi-major axis: alpha = 2/r0 - v0^2/mu
+	var alpha = (2.0 / r0_mag) - (v0_mag * v0_mag / mu)
+	
+	# For elliptical orbits (alpha > 0), reduce dt modulo orbital period T
+	var dt_eff = dt
+	if alpha > 1e-12:
+		var a = 1.0 / alpha
+		var period = 2.0 * PI * sqrt(a * a * a / mu)
+		if period > 1e-12:
+			dt_eff = fmod(dt, period)
+			if dt_eff > period * 0.5:
+				dt_eff -= period
+			elif dt_eff < -period * 0.5:
+				dt_eff += period
+				
+	if abs(dt_eff) < 1e-15:
+		return [r0, v0]
+		
+	# Initial guess for universal anomaly chi
+	var chi: float = 0.0
+	if alpha > 1e-6:
+		chi = sqrt_mu * alpha * dt_eff
+	elif alpha < -1e-6:
+		var a = 1.0 / alpha
+		var sgn = 1.0 if dt_eff >= 0.0 else -1.0
+		var denom = r0_dot_v0 + sgn * sqrt(-mu * a) * (1.0 - alpha * r0_mag)
+		var arg = -2.0 * mu * alpha * dt_eff / denom
+		if arg > 0.0:
+			chi = sgn * sqrt(-a) * log(arg)
+		else:
+			chi = sqrt_mu * dt_eff / r0_mag
+	else:
+		# Parabolic
+		chi = sqrt_mu * dt_eff / r0_mag
+		
+	# Newton-Raphson iteration
+	var max_iter = 100
+	var tol = 1e-12
+	for i in range(max_iter):
+		var chi2 = chi * chi
+		var z = alpha * chi2
+		var c2 = stumpff_c2(z)
+		var c3 = stumpff_c3(z)
+		
+		var f_val = (r0_dot_v0 / sqrt_mu) * chi2 * c2 + (1.0 - alpha * r0_mag) * chi2 * chi * c3 + r0_mag * chi - sqrt_mu * dt_eff
+		var dF = (r0_dot_v0 / sqrt_mu) * chi * (1.0 - z * c3) + (1.0 - alpha * r0_mag) * chi2 * c2 + r0_mag
+		
+		if abs(dF) < 1e-15:
+			break
+			
+		var d_chi = f_val / dF
+		chi -= d_chi
+		if abs(d_chi) < tol:
+			break
+			
+	var chi2 = chi * chi
+	var z = alpha * chi2
+	var c2 = stumpff_c2(z)
+	var c3 = stumpff_c3(z)
+	
+	# Lagrange coefficients f, g, f_dot, g_dot
+	var f = 1.0 - (chi2 / r0_mag) * c2
+	var g = dt_eff - (chi2 * chi / sqrt_mu) * c3
+	
+	var r1 = r0.mul_scalar(f).add(v0.mul_scalar(g))
+	var r1_mag = r1.length()
+	
+	var f_dot = (sqrt_mu / (r1_mag * r0_mag)) * chi * (z * c3 - 1.0)
+	var g_dot = 1.0 - (chi2 / r1_mag) * c2
+	
+	var v1 = r0.mul_scalar(f_dot).add(v0.mul_scalar(g_dot))
+	return [r1, v1]
+

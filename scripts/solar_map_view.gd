@@ -20,7 +20,25 @@ func _ready() -> void:
 	if btn_close_map:
 		btn_close_map.pressed.connect(toggle_map_view)
 		
+	var sim_clock = _get_sim_clock()
+	if sim_clock and sim_clock.has_signal("warp_changed"):
+		sim_clock.warp_changed.connect(_on_warp_changed)
+		_on_warp_changed(sim_clock.get_warp_factor(), sim_clock.is_on_rails())
+		
 	visible = is_map_open
+
+func _get_sim_clock() -> Node:
+	if is_inside_tree():
+		return get_node_or_null("/root/SimulationClock")
+	if Engine.get_main_loop() is SceneTree and (Engine.get_main_loop() as SceneTree).root:
+		return (Engine.get_main_loop() as SceneTree).root.get_node_or_null("SimulationClock")
+	return null
+
+func _on_warp_changed(factor: int, on_rails: bool) -> void:
+	time_warp_factor = float(factor)
+	if warp_label:
+		var mode_suffix = " (RAILS)" if on_rails else ""
+		warp_label.text = "TIME WARP: %dx%s" % [factor, mode_suffix]
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_map"):
@@ -36,19 +54,36 @@ func _input(event: InputEvent) -> void:
 			zoom_level = clamp(zoom_level * 1.15, 0.05, 50.0)
 			
 	if event.is_action_pressed("time_warp_increase"):
-		_set_time_warp(time_warp_factor * 5.0)
+		_increase_warp()
 	elif event.is_action_pressed("time_warp_decrease"):
-		_set_time_warp(max(1.0, time_warp_factor / 5.0))
+		_decrease_warp()
+
+func _increase_warp() -> void:
+	var sim_clock = _get_sim_clock()
+	if sim_clock:
+		sim_clock.set_warp_index(sim_clock.warp_index + 1)
+
+func _decrease_warp() -> void:
+	var sim_clock = _get_sim_clock()
+	if sim_clock:
+		sim_clock.set_warp_index(sim_clock.warp_index - 1)
 
 func toggle_map_view() -> void:
 	is_map_open = not is_map_open
 	visible = is_map_open
 
 func _set_time_warp(warp: float) -> void:
-	time_warp_factor = clamp(warp, 1.0, 10000.0)
-	Engine.time_scale = time_warp_factor
-	if warp_label:
-		warp_label.text = "TIME WARP: %1.0fx" % time_warp_factor
+	var sim_clock = _get_sim_clock()
+	if sim_clock and "WARP_LEVELS" in sim_clock:
+		var levels = sim_clock.WARP_LEVELS
+		var closest_idx = 0
+		var min_diff = INF
+		for i in range(levels.size()):
+			var diff = abs(float(levels[i]) - warp)
+			if diff < min_diff:
+				min_diff = diff
+				closest_idx = i
+		sim_clock.set_warp_index(closest_idx)
 
 func _process(_delta: float) -> void:
 	if not is_map_open or not is_instance_valid(active_vessel):

@@ -14,12 +14,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache Godot binary
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: godot
+          key: godot-4.7.2-stable-linux-x86_64
+
       - name: Download Godot Linux binary
+        if: steps.cache-godot.outputs.cache-hit != 'true'
         run: |
           wget -q https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
           unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
           mv Godot_v4.7.2-stable_linux.x86_64 godot
           chmod +x godot
+
+      - name: Ensure Godot executable
+        run: chmod +x godot
 
       - name: Headless Import
         run: |
@@ -48,3 +59,13 @@ jobs:
             echo "Script error encountered during test execution."
             exit 1
           fi
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            import.log
+            test.log
+          if-no-files-found: ignore

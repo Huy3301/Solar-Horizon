@@ -13,6 +13,7 @@ signal respawned_at_base()
 @export var auto_start: bool = true
 @export var current_step_index: int = 0
 @export var adelaide_base_pos: Vector3 = Vector3(0.0, 50.0, 0.0)
+@export var start_scenario: String = "orbit" # "adelaide" or "orbit"
 
 var ship: Node = null
 var player_rig: Node = null
@@ -29,11 +30,14 @@ func _ready() -> void:
 		start_tutorial()
 
 func _init_steps() -> void:
+	var throttle_prompt: String = get_action_key_prompt("throttle_up", "[Up Arrow / R2]")
+	if not throttle_prompt.begins_with("["):
+		throttle_prompt = "[%s]" % throttle_prompt
 	steps = [
 		{
 			"id": "adelaide_launch",
 			"title": "MISSION STEP 1: ADELAIDE LAUNCH",
-			"instruction": "Engage main thrusters (Throttle Up [Shift]) and pitch up towards the east to ascend from Adelaide Base.",
+			"instruction": "Engage main thrusters (Throttle Up %s) and pitch up towards the east to ascend from Adelaide Base." % throttle_prompt,
 			"hint": "Maintain pitch between 45° and 75° to clear the dense lower atmosphere.",
 			"check": _check_launch
 		},
@@ -73,6 +77,94 @@ func _init_steps() -> void:
 			"check": _check_return_to_ship
 		}
 	]
+
+static func get_action_key_prompt(action_name: String, fallback: String = "") -> String:
+	if not InputMap.has_action(action_name):
+		return fallback
+	var events: Array[InputEvent] = InputMap.action_get_events(action_name)
+	if events.is_empty():
+		return fallback
+		
+	var parts: Array[String] = []
+	for ev in events:
+		if ev is InputEventKey:
+			var code = ev.physical_keycode if ev.physical_keycode != KEY_NONE else ev.keycode
+			var key_str: String = ""
+			match code:
+				KEY_UP:
+					key_str = "Up Arrow"
+				KEY_DOWN:
+					key_str = "Down Arrow"
+				KEY_LEFT:
+					key_str = "Left Arrow"
+				KEY_RIGHT:
+					key_str = "Right Arrow"
+				KEY_SPACE:
+					key_str = "Space"
+				KEY_SHIFT:
+					key_str = "Shift"
+				KEY_CTRL:
+					key_str = "Ctrl"
+				KEY_ALT:
+					key_str = "Alt"
+				_:
+					key_str = OS.get_keycode_string(code)
+			if key_str != "" and not parts.has(key_str):
+				parts.append(key_str)
+		elif ev is InputEventJoypadMotion:
+			var joy_str: String = ""
+			match ev.axis:
+				JOY_AXIS_TRIGGER_RIGHT:
+					joy_str = "R2"
+				JOY_AXIS_TRIGGER_LEFT:
+					joy_str = "L2"
+				JOY_AXIS_LEFT_X:
+					joy_str = "Left Stick X"
+				JOY_AXIS_LEFT_Y:
+					joy_str = "Left Stick Y"
+				JOY_AXIS_RIGHT_X:
+					joy_str = "Right Stick X"
+				JOY_AXIS_RIGHT_Y:
+					joy_str = "Right Stick Y"
+				_:
+					joy_str = "Axis %d" % ev.axis
+			if joy_str != "" and not parts.has(joy_str):
+				parts.append(joy_str)
+		elif ev is InputEventJoypadButton:
+			var btn_str: String = ""
+			match ev.button_index:
+				JOY_BUTTON_A:
+					btn_str = "A"
+				JOY_BUTTON_B:
+					btn_str = "B"
+				JOY_BUTTON_X:
+					btn_str = "X"
+				JOY_BUTTON_Y:
+					btn_str = "Y"
+				JOY_BUTTON_LEFT_SHOULDER:
+					btn_str = "L1"
+				JOY_BUTTON_RIGHT_SHOULDER:
+					btn_str = "R1"
+				JOY_BUTTON_LEFT_STICK:
+					btn_str = "L3"
+				JOY_BUTTON_RIGHT_STICK:
+					btn_str = "R3"
+				JOY_BUTTON_START:
+					btn_str = "Start"
+				JOY_BUTTON_BACK:
+					btn_str = "Select"
+				_:
+					btn_str = "Button %d" % ev.button_index
+			if btn_str != "" and not parts.has(btn_str):
+				parts.append(btn_str)
+				
+	if parts.is_empty():
+		return fallback
+		
+	var formatted: String = " / ".join(parts)
+	if fallback.begins_with("[") and fallback.ends_with("]"):
+		return "[%s]" % formatted
+	return formatted
 
 func _resolve_scene_nodes() -> void:
 	var tree = get_tree()
@@ -119,9 +211,45 @@ func _connect_signals() -> void:
 			scanner_system.scan_completed.connect(_on_scan_completed)
 
 func start_tutorial() -> void:
-	current_step_index = 0
-	is_active = true
-	_notify_current_step()
+	if steps.is_empty():
+		_init_steps()
+		
+	if start_scenario == "orbit" and _is_ship_in_orbit():
+		current_step_index = 2
+		is_active = true
+		if steps.size() > 0:
+			step_completed.emit(0, steps[0].get("id", "adelaide_launch"))
+		if steps.size() > 1:
+			step_completed.emit(1, steps[1].get("id", "achieve_orbit"))
+		_notify_current_step()
+	else:
+		current_step_index = 0
+		is_active = true
+		_notify_current_step()
+
+func _is_ship_in_orbit() -> bool:
+	if not ship:
+		return false
+	var agl: float = 0.0
+	var speed: float = 0.0
+	if "telemetry_data" in ship and ship.telemetry_data is Dictionary:
+		agl = float(ship.telemetry_data.get("altitude_agl_m", ship.telemetry_data.get("altitude_agl", 0.0)))
+		if agl == 0.0 and "altitude_agl_km" in ship.telemetry_data:
+			agl = float(ship.telemetry_data["altitude_agl_km"]) * 1000.0
+		elif agl == 0.0 and "altitude_km" in ship.telemetry_data:
+			agl = float(ship.telemetry_data["altitude_km"]) * 1000.0
+		speed = float(ship.telemetry_data.get("speed_ms", ship.telemetry_data.get("speed", 0.0)))
+	if agl == 0.0 and "altitude_agl_m" in ship:
+		agl = float(ship.altitude_agl_m)
+	elif agl == 0.0 and "altitude_agl" in ship:
+		agl = float(ship.altitude_agl)
+	if speed == 0.0 and "speed_ms" in ship:
+		speed = float(ship.speed_ms)
+	elif speed == 0.0 and "speed" in ship:
+		speed = float(ship.speed)
+	elif speed == 0.0 and ship is RigidBody3D:
+		speed = (ship as RigidBody3D).linear_velocity.length()
+	return agl > 100000.0 and speed > 2000.0
 
 func _notify_current_step() -> void:
 	if current_step_index >= 0 and current_step_index < steps.size():
@@ -200,20 +328,39 @@ func _on_entered_ship(_ship_node: Node) -> void:
 func _check_launch() -> bool:
 	if not ship:
 		return false
-	if "telemetry_data" in ship:
-		var alt = ship.telemetry_data.get("altitude_agl_m", 0.0)
-		var spd = ship.telemetry_data.get("speed_ms", 0.0)
-		return alt > 25000.0 or spd > 1200.0
-	return false
+	if "telemetry_data" in ship and ship.telemetry_data is Dictionary:
+		var alt = float(ship.telemetry_data.get("altitude_agl_m", ship.telemetry_data.get("altitude_agl", 0.0)))
+		var vspeed = float(ship.telemetry_data.get("vspeed_ms", ship.telemetry_data.get("vspeed", 0.0)))
+		return alt > 25000.0 and vspeed > 100.0
+	var alt_prop: float = 0.0
+	if "altitude_agl_m" in ship:
+		alt_prop = float(ship.altitude_agl_m)
+	elif "altitude_agl" in ship:
+		alt_prop = float(ship.altitude_agl)
+	var vspeed_prop: float = 0.0
+	if "vspeed_ms" in ship:
+		vspeed_prop = float(ship.vspeed_ms)
+	elif "vspeed" in ship:
+		vspeed_prop = float(ship.vspeed)
+	elif ship is RigidBody3D:
+		vspeed_prop = (ship as RigidBody3D).linear_velocity.y
+	return alt_prop > 25000.0 and vspeed_prop > 100.0
 
 func _check_orbit() -> bool:
 	if not ship:
 		return false
-	if "telemetry_data" in ship:
-		var pe = ship.telemetry_data.get("pe_km", 0.0)
-		var spd = ship.telemetry_data.get("speed_ms", 0.0)
-		return (pe > 75.0) or (spd > 7200.0)
-	return false
+	if "telemetry_data" in ship and ship.telemetry_data is Dictionary:
+		var pe = float(ship.telemetry_data.get("pe_km", 0.0))
+		var spd = float(ship.telemetry_data.get("speed_ms", 0.0))
+		return (pe > 75.0) or (spd > 2100.0)
+	var spd_prop: float = 0.0
+	if "speed_ms" in ship:
+		spd_prop = float(ship.speed_ms)
+	elif "speed" in ship:
+		spd_prop = float(ship.speed)
+	elif ship is RigidBody3D:
+		spd_prop = (ship as RigidBody3D).linear_velocity.length()
+	return spd_prop > 2100.0
 
 func _check_moon_landing() -> bool:
 	if not ship:

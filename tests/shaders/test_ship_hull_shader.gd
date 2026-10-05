@@ -98,5 +98,4 @@ func test_ship_hull_shader_compiles_headless() -> void:
 	
 	# Clean up
 	RenderingServer.free_rid(rs_mat_rid)
-	box.free()
 	mesh_inst.free()

@@ -33,11 +33,49 @@ Write-Host "Repo: $repo" -ForegroundColor Cyan
 Write-Host "Godot: $GodotBin" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
-# 1. Import
+function Invoke-GodotWithTimeout {
+    param (
+        [string]$GodotPath,
+        [string[]]$Arguments,
+        [string]$OutputFile,
+        [int]$TimeoutSeconds = 90
+    )
+    if (Test-Path $OutputFile) { Remove-Item -Force $OutputFile -ErrorAction SilentlyContinue }
+    
+    $argString = ($Arguments | ForEach-Object { if ($_ -match '\s') { "`"$_`"" } else { $_ } }) -join ' '
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $GodotPath
+    $psi.Arguments = $argString
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+
+    $stdoutTask = $p.StandardOutput.ReadToEndAsync()
+    $stderrTask = $p.StandardError.ReadToEndAsync()
+
+    $finished = $p.WaitForExit($TimeoutSeconds * 1000)
+    if (-not $finished) {
+        try { $p.Kill() } catch {}
+        Write-Host "ERROR: Execution timed out after $TimeoutSeconds seconds! Process terminated." -ForegroundColor Red
+        return -1
+    }
+
+    [System.Threading.Tasks.Task]::WaitAll($stdoutTask, $stderrTask)
+    $allOutput = $stdoutTask.Result + "`n" + $stderrTask.Result
+    Set-Content -Path $OutputFile -Value $allOutput
+
+    return [int]$p.ExitCode
+}
+
+# 1. Import (timeout 90s)
 Write-Host "`n[Stage 1/3] Headless Import..." -ForegroundColor Yellow
 $importLog = "$repo\ci_import.log"
-cmd.exe /c """$GodotBin"" --headless --path ""$repo"" --editor --quit > ""$importLog"" 2>&1"
-$importExit = $LASTEXITCODE
+$importExit = Invoke-GodotWithTimeout -GodotPath $GodotBin -Arguments @("--headless", "--path", $repo, "--editor", "--quit") -OutputFile $importLog -TimeoutSeconds 90
 $importOutput = ""
 if (Test-Path $importLog) {
     $importOutput = Get-Content $importLog -Raw
@@ -51,11 +89,10 @@ if ($importExit -ne 0 -or $importOutput -match "SCRIPT ERROR" -or $importOutput 
 }
 Write-Host "Stage 1: Headless import passed." -ForegroundColor Green
 
-# 2. Tests
+# 2. Tests (timeout 90s)
 Write-Host "`n[Stage 2/3] Test Suite..." -ForegroundColor Yellow
 $testLog = "$repo\ci_test.log"
-cmd.exe /c """$GodotBin"" --headless --path ""$repo"" --script res://tests/run_tests.gd > ""$testLog"" 2>&1"
-$testExit = $LASTEXITCODE
+$testExit = Invoke-GodotWithTimeout -GodotPath $GodotBin -Arguments @("--headless", "--path", $repo, "--script", "res://tests/run_tests.gd") -OutputFile $testLog -TimeoutSeconds 90
 $testOutput = ""
 if (Test-Path $testLog) {
     $testOutput = Get-Content $testLog -Raw

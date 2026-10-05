@@ -29,13 +29,18 @@ func _init() -> void:
 			if name.begins_with("test_"):
 				total += 1
 				inst._failures.clear()
+				var start_ms: int = Time.get_ticks_msec()
 				inst.call(name)
+				var elapsed_ms: int = Time.get_ticks_msec() - start_ms
 				var fails = inst.get_failures()
 				if fails.is_empty():
-					print("PASS: %s::%s" % [file, name])
+					if elapsed_ms > 2500:
+						print("PASS [SLOW %d ms]: %s::%s" % [elapsed_ms, file, name])
+					else:
+						print("PASS: %s::%s" % [file, name])
 					passed += 1
 				else:
-					print("FAIL: %s::%s" % [file, name])
+					print("FAIL [%d ms]: %s::%s" % [elapsed_ms, file, name])
 					for f in fails:
 						print("  - " + f)
 		

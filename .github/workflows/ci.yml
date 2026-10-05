@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Headless Import & Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Godot Linux binary
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
+          mv Godot_v4.7.2-stable_linux.x86_64 godot
+          chmod +x godot
+
+      - name: Headless Import
+        run: |
+          set -o pipefail
+          ./godot --headless --editor --quit 2>&1 | tee import.log
+          IMPORT_EXIT=$?
+          if [ $IMPORT_EXIT -ne 0 ]; then
+            echo "Headless import failed with exit code $IMPORT_EXIT"
+            exit $IMPORT_EXIT
+          fi
+          if grep -E "SCRIPT ERROR|Parse Error" import.log; then
+            echo "Script or parse error found during import."
+            exit 1
+          fi
+
+      - name: Run Test Suite
+        run: |
+          set -o pipefail
+          ./godot --headless --script res://tests/run_tests.gd 2>&1 | tee test.log
+          TEST_EXIT=$?
+          if [ $TEST_EXIT -ne 0 ]; then
+            echo "Test suite failed with exit code $TEST_EXIT"
+            exit $TEST_EXIT
+          fi
+          if grep -q "SCRIPT ERROR" test.log; then
+            echo "Script error encountered during test execution."
+            exit 1
+          fi

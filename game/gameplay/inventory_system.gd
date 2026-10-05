@@ -65,6 +65,61 @@ func get_used_slots() -> int:
 		slots += ceili(float(count) / float(stack_max))
 	return slots
 
+## Simulates whether the array of items fits within max_mass and max_slots
+## given current inventory, without altering inventory state.
+## Each item in items can be an ItemDef, String/StringName, or Dict with 'item_id' and 'amount'.
+func can_fit_items(items: Array) -> bool:
+	var sim_inventory: Dictionary = inventory.duplicate()
+	var sim_mass: float = get_total_mass()
+
+	for it in items:
+		var item_id: String = ""
+		var amount: int = 1
+		if it is ItemDef:
+			item_id = String(it.id)
+			amount = 1
+		elif it is Dictionary:
+			if it.has("item_id"):
+				item_id = str(it["item_id"])
+			elif it.has("id"):
+				item_id = str(it["id"])
+			elif it.has("item") and it["item"] is ItemDef:
+				item_id = String(it["item"].id)
+			if it.has("amount"):
+				amount = int(it["amount"])
+			elif it.has("count"):
+				amount = int(it["count"])
+		elif it is StringName:
+			item_id = String(it)
+		elif it is String:
+			item_id = it
+		elif it is Resource and "id" in it:
+			item_id = String(it.id)
+
+		if item_id.is_empty() or amount <= 0:
+			continue
+
+		var def: ItemDef = get_item_def(item_id)
+		sim_inventory[item_id] = sim_inventory.get(item_id, 0) + amount
+		sim_mass += float(amount) * def.mass
+
+	if max_mass > 0.0 and sim_mass > max_mass + 1e-5:
+		return false
+
+	if max_slots > 0:
+		var sim_slots: int = 0
+		for id_str in sim_inventory:
+			var count: int = sim_inventory[id_str]
+			if count <= 0:
+				continue
+			var def: ItemDef = get_item_def(id_str)
+			var stack_max: int = maxi(1, def.stack_max)
+			sim_slots += ceili(float(count) / float(stack_max))
+		if sim_slots > max_slots:
+			return false
+
+	return true
+
 ## Adds items to the inventory respecting max_slots and max_mass.
 ## Returns the count of leftover items that could not fit.
 func add_item(item_data: Variant, amount: int) -> int:

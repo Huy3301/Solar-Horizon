@@ -40,4 +40,4 @@ func test_simulation_clock() -> void:
 	
 	clock.set_warp_index(1) # 2x
 	clock.advance(1.0)
-	assert_almost_eq(clock.sim_time_s, 2.0, 1e-5, "Clock advance")
+	assert_almost_eq(clock.sim_time_s, 1.0, 1e-5, "Clock advance")

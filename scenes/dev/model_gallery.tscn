@@ -1,0 +1,88 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scenes/dev/model_gallery.gd" id="1_gallery"]
+[ext_resource type="PackedScene" path="res://assets/models/ships/orbiter/orbiter.glb" id="2_orbiter_glb"]
+[ext_resource type="PackedScene" path="res://assets/models/ships/lunar_lander/lunar_lander.glb" id="3_lander_glb"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.12, 0.13, 0.15, 1)
+metallic = 0.85
+roughness = 0.25
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_floor"]
+material = SubResource("StandardMaterial3D_floor")
+top_radius = 16.0
+bottom_radius = 16.0
+height = 0.4
+radial_segments = 64
+
+[sub_resource type="Environment" id="Environment_studio"]
+background_mode = 1
+background_color = Color(0.03, 0.035, 0.045, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.08, 0.09, 0.12, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 3
+tonemap_exposure = 1.05
+glow_enabled = true
+glow_intensity = 0.8
+glow_bloom = 0.15
+glow_blend_mode = 1
+
+[node name="ModelGallery" type="Node3D"]
+script = ExtResource("1_gallery")
+
+[node name="Showroom" type="Node3D" parent="."]
+
+[node name="ShowroomFloor" type="MeshInstance3D" parent="Showroom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0)
+mesh = SubResource("CylinderMesh_floor")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Showroom"]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 12, 0)
+light_color = Color(1, 0.98, 0.95, 1)
+light_energy = 1.2
+shadow_enabled = true
+directional_shadow_max_distance = 60.0
+
+[node name="FillLight" type="DirectionalLight3D" parent="Showroom"]
+transform = Transform3D(0.707107, 0.5, -0.5, 0, 0.707107, 0.707107, 0.707107, -0.5, 0.5, 0, 10, 0)
+light_color = Color(0.65, 0.75, 0.9, 1)
+light_energy = 0.4
+shadow_enabled = false
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Showroom"]
+environment = SubResource("Environment_studio")
+
+[node name="OrbiterInstance" parent="Showroom" instance=ExtResource("2_orbiter_glb")]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.5, 0)
+
+[node name="COL_hull" parent="Showroom/OrbiterInstance" index="0"]
+visible = false
+
+[node name="LanderInstance" parent="Showroom" instance=ExtResource("3_lander_glb")]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 14, 0, 0)
+
+[node name="COL_hull" parent="Showroom/LanderInstance" index="0"]
+visible = false
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 18)
+current = true
+fov = 55.0
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="InfoLabel" type="Label" parent="CanvasLayer"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 500.0
+offset_bottom = 120.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 3
+text = "=== SOLAR HORIZON — SPACECRAFT SHOWROOM ===
+[1] Focus Orbiter   [2] Focus Lunar Lander   [G] Toggle Gear
+[Space] Toggle Turntable   [Mouse Drag] Orbit   [Wheel] Zoom"

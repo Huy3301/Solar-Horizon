@@ -77,7 +77,10 @@ func test_slice_gameplay_and_persistence() -> void:
 
 	# 1. Simulate physics ticks
 	for i in range(30):
-		world._physics_process(1.0 / 60.0)
+		if world.has_method("_physics_process"):
+			world._physics_process(1.0 / 60.0)
+		elif world.has_method("_process"):
+			world._process(1.0 / 60.0)
 		ship._physics_process(1.0 / 60.0)
 		bootstrap._physics_process(1.0 / 60.0)
 

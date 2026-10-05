@@ -41,7 +41,7 @@ static func calculate_orbit(r: Vector3, v: Vector3, mu: float = DEFAULT_MU, body
 	var dv = DVec3.from_vector3(v)
 	var elements = elements_from_state(dr, dv, mu)
 	elements.periapsis_alt = elements.periapsis_radius - body_radius
-	elements.apoapsis_alt = elements.apoapsis_radius - body_radius
+	elements.apoapsis_alt = (elements.apoapsis_radius - body_radius) if elements.apoapsis_radius > 0 else -1.0
 	return elements
 
 static func elements_from_state(r: DVec3, v: DVec3, mu: float) -> OrbitElements:
@@ -58,11 +58,7 @@ static func elements_from_state(r: DVec3, v: DVec3, mu: float) -> OrbitElements:
 	
 	if h_mag < 0.001:
 		return orbit
-		
-	var k_unit = DVec3.new(0, 1, 0)
-	var n = k_unit.cross(h)
-	var n_mag = n.length()
-	
+
 	var r_dot_v = r.dot(v)
 	var e_vec = r.mul_scalar(v_mag * v_mag - mu / r_mag).sub(v.mul_scalar(r_dot_v)).div_scalar(mu)
 	var e = e_vec.length()
@@ -93,18 +89,25 @@ static func elements_from_state(r: DVec3, v: DVec3, mu: float) -> OrbitElements:
 		orbit.apoapsis_radius = -1.0
 		orbit.period_seconds = -1.0
 		
-	orbit.inclination_rad = acos(clamp(h.y / h_mag, -1.0, 1.0))
+	# Compute Keplerian angles in the ecliptic reference frame
+	var r_ecl = godot_to_ecliptic(r)
+	var v_ecl = godot_to_ecliptic(v)
+	var h_ecl = r_ecl.cross(v_ecl)
+	var k_unit = DVec3.new(0, 0, 1)
+	var n_ecl = k_unit.cross(h_ecl)
+	var n_mag = n_ecl.length()
+	var e_vec_ecl = r_ecl.mul_scalar(v_mag * v_mag - mu / r_mag).sub(v_ecl.mul_scalar(r_dot_v)).div_scalar(mu)
+
+	orbit.inclination_rad = acos(clamp(h_ecl.z / h_mag, -1.0, 1.0))
 	
 	if n_mag > 1e-5:
-		orbit.lan_rad = acos(clamp(n.x / n_mag, -1.0, 1.0))
-		if n.z < 0:
-			orbit.lan_rad = 2.0 * PI - orbit.lan_rad
+		orbit.lan_rad = fposmod(atan2(n_ecl.y, n_ecl.x), 2.0 * PI)
 	else:
 		orbit.lan_rad = 0.0
 		
 	if n_mag > 1e-5 and e > 1e-5:
-		orbit.arg_periapsis_rad = acos(clamp(n.dot(e_vec) / (n_mag * e), -1.0, 1.0))
-		if e_vec.y < 0:
+		orbit.arg_periapsis_rad = acos(clamp(n_ecl.dot(e_vec_ecl) / (n_mag * e), -1.0, 1.0))
+		if e_vec_ecl.z < 0:
 			orbit.arg_periapsis_rad = 2.0 * PI - orbit.arg_periapsis_rad
 	else:
 		orbit.arg_periapsis_rad = 0.0

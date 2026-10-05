@@ -5,7 +5,7 @@ static var _pos_cache: Dictionary = {}
 static var _vel_cache: Dictionary = {}
 
 static func _invalidate_if_needed(t: float) -> void:
-	if not is_equal_approx(_cached_time, t):
+	if _cached_time != t:
 		_cached_time = t
 		_pos_cache.clear()
 		_vel_cache.clear()
@@ -52,12 +52,9 @@ static func _calc_state(id: StringName, t: float) -> void:
 	var local_pos = state[0] as DVec3
 	var local_vel = state[1] as DVec3
 	
-	# Rotate from ecliptic to godot
-	var godot_pos = OrbitalMechanics.ecliptic_to_godot(local_pos)
-	var godot_vel = OrbitalMechanics.ecliptic_to_godot(local_vel)
-	
-	_pos_cache[id] = parent_pos.add(godot_pos)
-	_vel_cache[id] = parent_vel.add(godot_vel)
+	# state_from_elements already returns coordinates in Godot frame
+	_pos_cache[id] = parent_pos.add(local_pos)
+	_vel_cache[id] = parent_vel.add(local_vel)
 
 static func body_position(id: StringName, t: float) -> DVec3:
 	_invalidate_if_needed(t)

@@ -239,6 +239,8 @@ quick_load={
 
 3d/physics_engine="Jolt Physics"
 common/physics_interpolation=true
+jolt_physics_3d/limits/max_linear_velocity=20000.0
+jolt_physics_3d/limits/max_angular_velocity=125.66
 
 [rendering]
 

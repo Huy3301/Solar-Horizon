@@ -6,3 +6,8 @@ android/build/
 .DS_Store
 Thumbs.db
 *.translation
+*.log
+import.log
+__pycache__/
+*.pyc
+*.pyo

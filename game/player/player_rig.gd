@@ -97,6 +97,8 @@ func exit_ship(bypass_landed_check: bool = false) -> bool:
 	
 	# Neutralize ship controls
 	if is_instance_valid(current_ship):
+		if "is_player_controlled" in current_ship:
+			current_ship.is_player_controlled = false
 		if "current_throttle" in current_ship:
 			current_ship.current_throttle = 0.0
 		if "control_pitch" in current_ship:
@@ -128,6 +130,9 @@ func enter_ship(ship_target: Node = null) -> bool:
 		current_ship = ship_target
 	if not is_instance_valid(current_ship):
 		return false
+		
+	if "is_player_controlled" in current_ship:
+		current_ship.is_player_controlled = true
 		
 	# Deactivate on-foot rig
 	if is_instance_valid(on_foot_rig):

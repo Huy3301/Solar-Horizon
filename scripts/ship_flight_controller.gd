@@ -37,9 +37,13 @@ signal ship_crashed(reason: String)
 enum FlightModelMode { ASSISTED = 0, NEWTONIAN = 1 }
 @export_group("Flight Systems")
 @export var flight_model: FlightModelMode = FlightModelMode.ASSISTED
+@export var is_player_controlled: bool = true
 
 var current_throttle: float = 0.0
 var target_throttle: float = 0.0
+var control_throttle: float = 0.0
+var control_strafe: float = 0.0
+var is_pulse_driving: bool = false
 var landing_gear_deployed: bool = false
 var brakes_engaged: bool = false
 var is_landed: bool = false
@@ -90,6 +94,8 @@ func _get_universe_pos() -> DVec3:
 
 func _ready() -> void:
 	gravity_scale = 0.0
+	linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
 	linear_damp = 0.0
 	angular_damp = 0.0
 	max_contacts_reported = 8
@@ -191,11 +197,27 @@ func _physics_process(delta: float) -> void:
 	_update_telemetry(altitude_asl, altitude_agl, speed, dynamic_pressure, air_density, g_local, g_force_val)
 
 func _handle_inputs(delta: float) -> void:
+	if not is_player_controlled:
+		control_pitch = 0.0
+		control_yaw = 0.0
+		control_roll = 0.0
+		control_throttle = 0.0
+		control_vtol = 0.0
+		control_strafe = 0.0
+		is_boosting = false
+		is_pulse_driving = false
+		return
+
 	if is_crashed:
 		control_pitch = 0.0
 		control_roll = 0.0
 		control_yaw = 0.0
 		target_throttle = 0.0
+		control_throttle = 0.0
+		control_vtol = 0.0
+		control_strafe = 0.0
+		is_boosting = false
+		is_pulse_driving = false
 		return
 		
 	control_pitch = Input.get_axis("pitch_down", "pitch_up")
@@ -206,6 +228,7 @@ func _handle_inputs(delta: float) -> void:
 		target_throttle = clamp(target_throttle + 0.45 * delta, 0.0, 1.0)
 	elif Input.is_action_pressed("throttle_down"):
 		target_throttle = clamp(target_throttle - 0.45 * delta, 0.0, 1.0)
+	control_throttle = target_throttle
 		
 	if Input.is_action_just_pressed("toggle_gear"):
 		toggle_landing_gear()
@@ -216,6 +239,7 @@ func _handle_inputs(delta: float) -> void:
 	
 	if Input.is_action_just_pressed("pulse_drive") or Input.is_action_just_pressed("space_cruise"):
 		toggle_pulse_drive()
+	is_pulse_driving = pulse_drive_active
 
 func _update_throttle(delta: float) -> void:
 	current_throttle = move_toward(current_throttle, target_throttle, (1.0 / throttle_spool_rate) * delta)
@@ -229,7 +253,7 @@ func _get_moments_of_inertia() -> Vector3:
 	return I
 
 func _apply_attitude_controls(q: float) -> void:
-	if is_crashed:
+	if is_crashed or not is_player_controlled:
 		return
 		
 	var I = _get_moments_of_inertia()

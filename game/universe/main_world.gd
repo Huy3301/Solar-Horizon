@@ -27,6 +27,21 @@ var mat_atmosphere: ShaderMaterial
 var mat_sky: ShaderMaterial
 
 var current_cloud_rot: float = 0.0
+var _prev_earth_pos: DVec3 = null
+
+func _get_sim_clock() -> Node:
+	if is_inside_tree() and get_tree() and get_tree().root:
+		return get_tree().root.get_node_or_null("SimulationClock")
+	if Engine.get_main_loop() is SceneTree and (Engine.get_main_loop() as SceneTree).root:
+		return (Engine.get_main_loop() as SceneTree).root.get_node_or_null("SimulationClock")
+	return null
+
+func _get_origin_svc() -> Node:
+	if is_inside_tree() and get_tree() and get_tree().root:
+		return get_tree().root.get_node_or_null("OriginService")
+	if Engine.get_main_loop() is SceneTree and (Engine.get_main_loop() as SceneTree).root:
+		return (Engine.get_main_loop() as SceneTree).root.get_node_or_null("OriginService")
+	return null
 
 func _ready() -> void:
 	_init_materials()
@@ -42,16 +57,18 @@ func _ready() -> void:
 		sun_ctrl.add_occluder(earth_globe, earth_r)
 		sun_ctrl.add_occluder(moon_globe, moon_r)
 	
-	var sim_clock = get_node_or_null("/root/SimulationClock")
+	var sim_clock = _get_sim_clock()
 	var sim_time = sim_clock.sim_time_s if sim_clock else 0.0
 	var earth_pos = GravityService.body_position("Earth", sim_time)
+	_prev_earth_pos = earth_pos
 	
-	var origin_svc = get_node_or_null("/root/OriginService")
+	var origin_svc = _get_origin_svc()
 	if origin_svc:
 		origin_svc.world_root = self
 		# Initial origin centered at ship starting position (Earth + altitude along Y)
 		var init_offset = earth_pos.add(DVec3.new(0.0, earth_r + starting_altitude_m, 0.0))
 		origin_svc.origin.offset = init_offset
+		origin_svc.origin.normalize()
 		if ship:
 			ship.global_position = Vector3.ZERO
 			# Calculate circular orbital speed at initial radius
@@ -83,8 +100,19 @@ func _init_materials() -> void:
 		if world_env.environment.sky.sky_material is ShaderMaterial:
 			mat_sky = world_env.environment.sky.sky_material as ShaderMaterial
 
+func _physics_process(_delta: float) -> void:
+	var sim_clock = _get_sim_clock()
+	var sim_time = sim_clock.sim_time_s if sim_clock else 0.0
+	var earth_pos = GravityService.body_position("Earth", sim_time)
+	if _prev_earth_pos != null:
+		var delta_dom = earth_pos.sub(_prev_earth_pos)
+		var origin_svc = _get_origin_svc()
+		if origin_svc and origin_svc.origin:
+			origin_svc.origin.add_offset(delta_dom)
+	_prev_earth_pos = earth_pos
+
 func _process(delta: float) -> void:
-	var sim_clock = get_node_or_null("/root/SimulationClock")
+	var sim_clock = _get_sim_clock()
 	var sim_time = sim_clock.sim_time_s if sim_clock else 0.0
 	
 	var earth_pos = GravityService.body_position("Earth", sim_time)
@@ -96,7 +124,7 @@ func _process(delta: float) -> void:
 		mat_clouds.set_shader_parameter("cloud_rotation", current_cloud_rot)
 
 func _update_celestial_positions(sim_time: float) -> void:
-	var origin_svc = get_node_or_null("/root/OriginService")
+	var origin_svc = _get_origin_svc()
 	if not origin_svc:
 		return
 		

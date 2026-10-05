@@ -82,6 +82,10 @@ var _base_linear_damp: float = 0.0
 var _base_angular_damp: float = 0.0
 
 func _ready() -> void:
+	linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	linear_damp = 0.0
+	angular_damp = 0.0
 	_base_linear_damp = linear_damp
 	_base_angular_damp = angular_damp
 

@@ -38,7 +38,7 @@ func get_star_class(sector: Vector3i) -> String:
 	var system_seed = get_star_seed(sector)
 	if system_seed == 0:
 		return ""
-	var val = system_seed % 100
+	var val = abs(((system_seed >> 16) ^ 0x4B3C9A) % 100)
 	if val < 60: return "M" # 60% Red Dwarf
 	if val < 75: return "K" # 15% Orange Dwarf
 	if val < 85: return "G" # 10% Yellow Dwarf

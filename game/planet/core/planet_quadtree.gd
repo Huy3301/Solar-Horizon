@@ -56,6 +56,11 @@ func _ready() -> void:
 	_create_grid_mesh()
 	_init_roots()
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		if chunk_streamer:
+			chunk_streamer.wait_all()
+
 func _create_grid_mesh() -> void:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -236,7 +241,7 @@ func _update_instances(visible_nodes: Array) -> void:
 		if not node.instance:
 			node.instance = _get_patch_instance()
 			_setup_instance(node)
-		node.instance.position = node.center_double.to_local_vector3(camera_pos)
+		node.instance.position = node.center_double.to_vector3()
 		current_instances.append(node.instance)
 		
 	for inst in active_patches:
@@ -281,11 +286,11 @@ func _on_collision_generated(collision_shape: ConcavePolygonShape3D, node: Patch
 		var shape = CollisionShape3D.new()
 		shape.shape = collision_shape
 		collision_body.add_child(shape)
-		collision_body.position = node.center_double.to_local_vector3(camera_pos)
+		collision_body.position = node.center_double.to_vector3()
 		add_child(collision_body)
 	else:
 		if collision_body:
-			collision_body.position = node.center_double.to_local_vector3(camera_pos)
+			collision_body.position = node.center_double.to_vector3()
 
 func _get_patch_instance() -> MeshInstance3D:
 	if patch_pool.size() > 0:

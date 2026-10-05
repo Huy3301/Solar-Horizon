@@ -32,21 +32,22 @@ func update_current_sector(sector: Vector3i) -> void:
 ## Analytically derives star class directly from seed or sector without instantiating StarSystemGenerator.
 func get_star_class(seed_or_sector: Variant) -> int:
 	var s: int = _resolve_seed(seed_or_sector)
-	var h: int = _hash_seed(s)
-	var roll: float = float(h & 0xFFFFFFFF) / 4294967296.0
-	if roll < 0.00003:
-		return StarSystemGenerator.StarClass.O
-	elif roll < 0.0013:
-		return StarSystemGenerator.StarClass.B
-	elif roll < 0.0073:
-		return StarSystemGenerator.StarClass.A
-	elif roll < 0.0373:
-		return StarSystemGenerator.StarClass.F
-	elif roll < 0.1133:
-		return StarSystemGenerator.StarClass.G
-	elif roll < 0.2343:
+	if s == 0:
+		return StarSystemGenerator.StarClass.M
+	var val = abs(((s >> 16) ^ 0x4B3C9A) % 100)
+	if val < 60:
+		return StarSystemGenerator.StarClass.M
+	elif val < 75:
 		return StarSystemGenerator.StarClass.K
-	return StarSystemGenerator.StarClass.M
+	elif val < 85:
+		return StarSystemGenerator.StarClass.G
+	elif val < 92:
+		return StarSystemGenerator.StarClass.F
+	elif val < 96:
+		return StarSystemGenerator.StarClass.A
+	elif val < 99:
+		return StarSystemGenerator.StarClass.B
+	return StarSystemGenerator.StarClass.O
 
 ## Analytically derives star luminosity directly from seed or sector without instantiating StarSystemGenerator.
 func get_star_luminosity(seed_or_sector: Variant) -> float:

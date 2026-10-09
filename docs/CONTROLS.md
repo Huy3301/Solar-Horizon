@@ -52,3 +52,19 @@ To eliminate input conflicts identified in previous versions (e.g. B-07 where `i
 - **`scan`** triggers an active planetary sensor ping to locate scannable entities, mineral deposits, and points of interest.
 - **`visor`** toggles the analytical HUD visor mode independently.
 - **`jetpack`** operates as a discrete action while also supporting double-jump / airborne space for intuitive platforming.
+
+
+## Flight controls (Slice 1, NMS-style default)
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Throttle up / down | Up / Down arrow | RT / LT |
+| Boost | Shift | L3 |
+| Pulse drive (toggle; needs >= 60 km clear of any body) | Tab | R3 |
+| Lift / descend (VTOL) | Space / Ctrl | A / - |
+| Pitch / roll / yaw | W,S / A,D / Q,E | sticks |
+| Camera | V | - |
+
+Touch Boost/Pulse buttons are not implemented yet. See docs/OVERHAUL_V3.md.
+Tests: `godot --headless --path . --script res://tests/run_tests.gd` (~4 min). Filter with
+`SH_TEST_FILE=test_slice1 SH_TEST_METHOD=takeoff`.

@@ -6,7 +6,6 @@ extends Node3D
 
 @onready var orbiter_node: Node3D = $Showroom/OrbiterInstance
 @onready var lander_node: Node3D = $Showroom/LanderInstance
-@onready var rover_node: Node3D = get_node_or_null("Showroom/RoverInstance")
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 @onready var info_label: Label = $CanvasLayer/InfoLabel
@@ -34,10 +33,6 @@ func _ready() -> void:
 		var col_l = lander_node.get_node_or_null("COL_hull")
 		if col_l:
 			col_l.visible = false
-	if rover_node:
-		var col_r = rover_node.get_node_or_null("COL_chassis")
-		if col_r:
-			col_r.visible = false
 
 	_update_hud()
 
@@ -79,12 +74,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			target_pivot_pos = lnd_pos + Vector3(0, 2.0, 0)
 			camera_distance = 12.0
 			_update_hud("Focused: Lunar Lander (Artemis/Apollo Modular)")
-		elif event.keycode == KEY_3:
-			# Focus Lunar Rover
-			var rov_pos = rover_node.position if rover_node else Vector3(-12, 0.45, 0)
-			target_pivot_pos = rov_pos + Vector3(0, 0.8, 0)
-			camera_distance = 6.0
-			_update_hud("Focused: Lunar Surface Rover (Apollo/Artemis 4WD)")
 		elif event.keycode == KEY_SPACE:
 			auto_rotate = not auto_rotate
 			_update_hud("Turntable Auto-Rotate: %s" % ("ON" if auto_rotate else "OFF"))
@@ -118,7 +107,7 @@ func _update_hud(status_msg: String = "") -> void:
 	if not info_label:
 		return
 	var txt = "=== SOLAR HORIZON — SPACECRAFT SHOWROOM ===\n"
-	txt += "[1] Focus Orbiter   [2] Focus Lander   [3] Focus Rover   [G] Toggle Gear\n"
+	txt += "[1] Focus Orbiter   [2] Focus Lunar Lander   [G] Toggle Gear\n"
 	txt += "[Space] Toggle Turntable   [Mouse Drag] Orbit   [Wheel] Zoom\n"
 	if status_msg != "":
 		txt += "\nStatus: " + status_msg

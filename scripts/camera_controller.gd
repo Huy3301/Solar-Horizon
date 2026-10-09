@@ -19,6 +19,12 @@ enum CameraMode {
 @export var chase_distance: float = 28.0
 @export var chase_height: float = 7.0
 @export var chase_smooth_speed: float = 8.0
+## How fast the camera's *orientation* follows the ship (1/s). Position is rigidly tied to the ship
+## so the camera never trails behind at speed (a position lerp lags v*dt*(1-a)/a metres: ~240 m at 2 km/s).
+@export var chase_rotation_speed: float = 5.0
+## Extra pull-back (fraction of chase_distance/height) at the speed reference (boost / limit).
+@export var chase_speed_pullback: float = 0.35
+@export var chase_look_ahead: float = 45.0
 @export var base_fov: float = 72.0
 @export var max_fov: float = 90.0
 @export var fov_speed_threshold: float = 8000.0
@@ -38,9 +44,12 @@ var touch_start_pos: Vector2 = Vector2.ZERO
 
 var trauma: float = 0.0
 var _shake_time: float = 0.0
+var _chase_basis: Basis = Basis.IDENTITY
+var _chase_ready: bool = false
 
 func _ready() -> void:
 	set_as_top_level(true)
+	_ready_interp_off()
 	_ensure_camera()
 	_resolve_target()
 
@@ -101,7 +110,17 @@ func _input(event: InputEvent) -> void:
 		orbit_yaw -= event.relative.x * 0.3
 		orbit_pitch = clamp(orbit_pitch - event.relative.y * 0.3, -80.0, 80.0)
 
-func _physics_process(delta: float) -> void:
+func _ready_interp_off() -> void:
+	# The camera follows the *rendered* (interpolated) ship every frame, so it must not be interpolated itself.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+func _process(delta: float) -> void:
+	_follow(delta)
+
+func _physics_process(_delta: float) -> void:
+	pass
+
+func _follow(delta: float) -> void:
 	_ensure_camera()
 	if not target_node and target_ship:
 		target_node = target_ship
@@ -129,16 +148,33 @@ func _handle_orbit_input(delta: float) -> void:
 			orbit_yaw -= look_x * 90.0 * delta
 			orbit_pitch = clamp(orbit_pitch - look_y * 90.0 * delta, -80.0, 80.0)
 
+func _target_transform() -> Transform3D:
+	if target_node and target_node.is_inside_tree():
+		return target_node.get_global_transform_interpolated()
+	return Transform3D.IDENTITY
+
+func _speed_reference() -> float:
+	if target_node and "current_speed_limit" in target_node:
+		return maxf(float(target_node.current_speed_limit), 50.0)
+	return fov_speed_threshold
+
 func _process_chase_camera(delta: float) -> void:
-	var target_transform: Transform3D = target_node.global_transform
-	var forward: Vector3 = -target_transform.basis.z.normalized()
-	var up: Vector3 = target_transform.basis.y.normalized()
-	
-	var desired_pos: Vector3 = target_node.global_position - forward * chase_distance + up * chase_height
-	global_position = global_position.lerp(desired_pos, chase_smooth_speed * delta)
-	
-	var vel = get_target_velocity()
-	var look_target: Vector3 = target_node.global_position + vel * 0.02
+	var tt: Transform3D = _target_transform()
+	var ship_basis: Basis = tt.basis.orthonormalized()
+	if not _chase_ready:
+		_chase_basis = ship_basis
+		_chase_ready = true
+	# Smooth orientation only (frame-rate independent); position stays rigidly attached to the ship.
+	var w: float = 1.0 - exp(-chase_rotation_speed * delta)
+	_chase_basis = _chase_basis.slerp(ship_basis, w).orthonormalized()
+
+	var speed: float = get_target_velocity().length()
+	var pull: float = 1.0 + chase_speed_pullback * clampf(speed / _speed_reference(), 0.0, 1.0)
+	var forward: Vector3 = -_chase_basis.z
+	var up: Vector3 = _chase_basis.y
+	global_position = tt.origin - forward * (chase_distance * pull) + up * (chase_height * pull)
+
+	var look_target: Vector3 = tt.origin + forward * chase_look_ahead
 	if global_position.distance_to(look_target) > 0.01:
 		camera.look_at(look_target, up)
 
@@ -172,7 +208,7 @@ func _update_dynamic_fov(delta: float) -> void:
 	if not camera:
 		return
 	var speed: float = get_target_velocity().length()
-	var fov_factor: float = clamp(speed / fov_speed_threshold, 0.0, 1.0)
+	var fov_factor: float = clamp(speed / _speed_reference(), 0.0, 1.0)
 	var target_fov: float = lerp(base_fov, max_fov, fov_factor)
 	var weight: float = clamp(4.0 * delta, 0.0, 1.0)
 	camera.fov = lerp(camera.fov, target_fov, weight)
@@ -203,6 +239,7 @@ func _apply_camera_shake(delta: float) -> void:
 		camera.rotation.z = 0.0
 
 func _cycle_camera_mode() -> void:
+	_chase_ready = false
 	match current_mode:
 		CameraMode.COCKPIT:
 			set_camera_mode(CameraMode.CHASE)
@@ -212,6 +249,7 @@ func _cycle_camera_mode() -> void:
 			set_camera_mode(CameraMode.COCKPIT)
 
 func set_camera_mode(new_mode: CameraMode) -> void:
+	_chase_ready = false
 	current_mode = new_mode
 	if camera:
 		camera.position = Vector3.ZERO

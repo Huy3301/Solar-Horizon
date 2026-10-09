@@ -68,6 +68,8 @@ func _process(_delta: float) -> void:
 		var alt_asl = cam_dist - planet_radius_m
 		
 		quadtree.camera_pos = DVec3.new(target_local.x, target_local.y, target_local.z)
+		quadtree.camera_world_pos = target_world
+		quadtree.planet_basis = global_transform.basis.orthonormalized()
 		
 		# Far-LOD cross-fade logic:
 		if far_lod_surface and is_instance_valid(far_lod_surface):

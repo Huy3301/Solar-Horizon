@@ -1,4 +1,4 @@
-extends Node
+class_name AudioManager extends Node
 
 ## Procedural audio manager synthesizing spacecraft sounds and UI effects in memory.
 ## Uses AudioStreamWAV 16-bit PCM mono waveforms.

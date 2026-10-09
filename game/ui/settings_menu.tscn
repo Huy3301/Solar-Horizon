@@ -9,363 +9,80 @@ script/source = "extends Control
 @onready var haptics_check = $Panel/VBoxContainer/HapticsCheck
 @onready var haptics_slider = $Panel/VBoxContainer/HapticsSlider
 
-@onready var aa_option: OptionButton = $Panel/VBoxContainer/AAOption
-@onready var debanding_check: CheckBox = $Panel/VBoxContainer/DebandingCheck
-@onready var res_slider: HSlider = $Panel/VBoxContainer/ResolutionSlider
-@onready var quality_option: OptionButton = $Panel/VBoxContainer/QualityOption
-
-var aa_mode_option: OptionButton:
-	get:
-		_ensure_nodes()
-		return aa_option
-var resolution_scale_slider: HSlider:
-	get:
-		_ensure_nodes()
-		return res_slider
-var quality_preset_option: OptionButton:
-	get:
-		_ensure_nodes()
-		return quality_option
-
 const SETTINGS_PATH = \"user://settings.cfg\"
-var settings_path: String = SETTINGS_PATH
-var target_viewport: Viewport = null
-var scene_tree: SceneTree = null
-
-func _get_target_viewport() -> Viewport:
-	if target_viewport != null:
-		return target_viewport
-	if is_inside_tree() and get_viewport() != null:
-		return get_viewport()
-	if scene_tree != null and scene_tree.root != null:
-		return scene_tree.root
-	var main_loop = Engine.get_main_loop()
-	if main_loop is SceneTree and main_loop.root != null:
-		return main_loop.root
-	return null
-
-func _get_autoload_node(node_name: String) -> Node:
-	if is_inside_tree():
-		return get_node_or_null(\"/root/\" + node_name)
-	if scene_tree != null and scene_tree.root != null:
-		return scene_tree.root.get_node_or_null(node_name)
-	var main_loop = Engine.get_main_loop()
-	if main_loop is SceneTree and main_loop.root != null:
-		return main_loop.root.get_node_or_null(node_name)
-	return null
-
-func _ensure_nodes() -> void:
-	if scale_slider == null:
-		scale_slider = get_node_or_null(\"Panel/VBoxContainer/ScaleSlider\")
-	if cb_option == null:
-		cb_option = get_node_or_null(\"Panel/VBoxContainer/ColorBlindOption\")
-	if toggle_check == null:
-		toggle_check = get_node_or_null(\"Panel/VBoxContainer/ToggleCheck\")
-	if haptics_check == null:
-		haptics_check = get_node_or_null(\"Panel/VBoxContainer/HapticsCheck\")
-	if haptics_slider == null:
-		haptics_slider = get_node_or_null(\"Panel/VBoxContainer/HapticsSlider\")
-	if aa_option == null:
-		aa_option = get_node_or_null(\"Panel/VBoxContainer/AAOption\")
-	if debanding_check == null:
-		debanding_check = get_node_or_null(\"Panel/VBoxContainer/DebandingCheck\")
-	if res_slider == null:
-		res_slider = get_node_or_null(\"Panel/VBoxContainer/ResolutionSlider\")
-	if quality_option == null:
-		quality_option = get_node_or_null(\"Panel/VBoxContainer/QualityOption\")
-	_populate_options()
-
-func _populate_options() -> void:
-	if cb_option and cb_option.item_count == 0:
-		cb_option.clear()
-		cb_option.add_item(\"None\", 0)
-		cb_option.add_item(\"Protanopia\", 1)
-		cb_option.add_item(\"Deuteranopia\", 2)
-		cb_option.add_item(\"Tritanopia\", 3)
-
-	if aa_option and aa_option.item_count == 0:
-		aa_option.clear()
-		aa_option.add_item(\"Disabled\", 0)
-		aa_option.add_item(\"FXAA\", 1)
-		aa_option.add_item(\"2x MSAA\", 2)
-		aa_option.add_item(\"4x MSAA\", 3)
-		aa_option.add_item(\"TAA\", 4)
-
-	if quality_option and quality_option.item_count == 0:
-		quality_option.clear()
-		quality_option.add_item(\"Desktop High\", 0)
-		quality_option.add_item(\"Desktop Balanced\", 1)
-		quality_option.add_item(\"Mobile 60 FPS\", 2)
-		quality_option.add_item(\"Battery Saver 30 FPS\", 3)
 
 func _ready() -> void:
-	_ensure_nodes()
+	# Workaround for option button items being added in tscn vs via code
+	cb_option.clear()
+	cb_option.add_item(\"None\", 0)
+	cb_option.add_item(\"Protanopia\", 1)
+	cb_option.add_item(\"Deuteranopia\", 2)
+	cb_option.add_item(\"Tritanopia\", 3)
 
 	_load_settings()
-
-	if scale_slider and not scale_slider.value_changed.is_connected(_on_scale_changed):
-		scale_slider.value_changed.connect(_on_scale_changed)
-	if cb_option and not cb_option.item_selected.is_connected(_on_cb_selected):
-		cb_option.item_selected.connect(_on_cb_selected)
-	if toggle_check and not toggle_check.toggled.is_connected(_on_toggle_changed):
-		toggle_check.toggled.connect(_on_toggle_changed)
-	if haptics_check and not haptics_check.toggled.is_connected(_on_haptics_toggled):
-		haptics_check.toggled.connect(_on_haptics_toggled)
-	if haptics_slider and not haptics_slider.value_changed.is_connected(_on_haptics_slider_changed):
-		haptics_slider.value_changed.connect(_on_haptics_slider_changed)
-
-	if aa_option and not aa_option.item_selected.is_connected(_on_aa_selected):
-		aa_option.item_selected.connect(_on_aa_selected)
-	if debanding_check and not debanding_check.toggled.is_connected(_on_debanding_toggled):
-		debanding_check.toggled.connect(_on_debanding_toggled)
-	if res_slider and not res_slider.value_changed.is_connected(_on_resolution_scale_changed):
-		res_slider.value_changed.connect(_on_resolution_scale_changed)
-	if quality_option and not quality_option.item_selected.is_connected(_on_quality_preset_selected):
-		quality_option.item_selected.connect(_on_quality_preset_selected)
+	
+	scale_slider.value_changed.connect(_on_scale_changed)
+	cb_option.item_selected.connect(_on_cb_selected)
+	toggle_check.toggled.connect(_on_toggle_changed)
+	haptics_check.toggled.connect(_on_haptics_toggled)
+	haptics_slider.value_changed.connect(_on_haptics_slider_changed)
 
 func _on_scale_changed(value: float) -> void:
-	var am = _get_autoload_node(\"AccessibilityManager\")
-	if am:
-		am.ui_scale = value
+	if has_node(\"/root/AccessibilityManager\"):
+		get_node(\"/root/AccessibilityManager\").ui_scale = value
 	_save_settings()
 
 func _on_cb_selected(index: int) -> void:
-	var am = _get_autoload_node(\"AccessibilityManager\")
-	if am:
-		am.color_blind_mode = index
+	if has_node(\"/root/AccessibilityManager\"):
+		get_node(\"/root/AccessibilityManager\").color_blind_mode = index
 	_save_settings()
 
 func _on_toggle_changed(button_pressed: bool) -> void:
-	var am = _get_autoload_node(\"AccessibilityManager\")
-	if am:
-		am.use_toggle_controls = button_pressed
+	if has_node(\"/root/AccessibilityManager\"):
+		get_node(\"/root/AccessibilityManager\").use_toggle_controls = button_pressed
 	_save_settings()
 
 func _on_haptics_toggled(button_pressed: bool) -> void:
-	var hm = _get_autoload_node(\"HapticsManager\")
-	if hm:
-		hm.haptics_enabled = button_pressed
+	if has_node(\"/root/HapticsManager\"):
+		get_node(\"/root/HapticsManager\").haptics_enabled = button_pressed
 	_save_settings()
 
 func _on_haptics_slider_changed(value: float) -> void:
-	var hm = _get_autoload_node(\"HapticsManager\")
-	if hm:
-		hm.haptics_intensity_multiplier = value
+	if has_node(\"/root/HapticsManager\"):
+		get_node(\"/root/HapticsManager\").haptics_intensity_multiplier = value
 	_save_settings()
-
-func set_aa_mode(mode: int) -> void:
-	_ensure_nodes()
-	if aa_option:
-		aa_option.selected = mode
-	_apply_aa_mode(mode)
-	_save_settings()
-
-func _on_aa_selected(index: int) -> void:
-	set_aa_mode(index)
-
-func _apply_aa_mode(mode: int) -> void:
-	var vp = _get_target_viewport()
-	if vp:
-		match mode:
-			0:
-				vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-				vp.msaa_3d = Viewport.MSAA_DISABLED
-				vp.use_taa = false
-			1:
-				vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-				vp.msaa_3d = Viewport.MSAA_DISABLED
-				vp.use_taa = false
-			2:
-				vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-				vp.msaa_3d = Viewport.MSAA_2X
-				vp.use_taa = false
-			3:
-				vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-				vp.msaa_3d = Viewport.MSAA_4X
-				vp.use_taa = false
-			4:
-				vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-				vp.msaa_3d = Viewport.MSAA_DISABLED
-				vp.use_taa = true
-
-func set_debanding(enabled: bool) -> void:
-	_ensure_nodes()
-	if debanding_check:
-		debanding_check.button_pressed = enabled
-	_apply_debanding(enabled)
-	_save_settings()
-
-func _on_debanding_toggled(button_pressed: bool) -> void:
-	set_debanding(button_pressed)
-
-func _apply_debanding(enabled: bool) -> void:
-	var vp = _get_target_viewport()
-	if vp:
-		vp.use_debanding = enabled
-
-func set_resolution_scale(scale_val: float) -> void:
-	_ensure_nodes()
-	if res_slider:
-		res_slider.value = scale_val
-	_apply_resolution_scale(scale_val)
-	_save_settings()
-
-func _on_resolution_scale_changed(value: float) -> void:
-	set_resolution_scale(value)
-
-func _apply_resolution_scale(scale_val: float) -> void:
-	var vp = _get_target_viewport()
-	if vp:
-		vp.scaling_3d_scale = scale_val
-
-func set_quality_preset(index: int) -> void:
-	_ensure_nodes()
-	if quality_option:
-		quality_option.selected = index
-	_apply_quality_preset(index)
-	_save_settings()
-
-func _on_quality_preset_selected(index: int) -> void:
-	set_quality_preset(index)
-
-func _apply_quality_preset(index: int) -> void:
-	var qg = _get_autoload_node(\"QualityGovernor\")
-	if qg:
-		var preset_name = \"\"
-		match index:
-			0:
-				preset_name = \"desktop_high\"
-				if qg.has_method(\"apply_preset\"):
-					qg.apply_preset(\"performance\")
-				elif qg.has_method(\"set_preset\"):
-					qg.set_preset(\"performance\")
-				if \"is_mobile\" in qg:
-					qg.is_mobile = false
-				if \"max_fsr_scale\" in qg:
-					qg.max_fsr_scale = 1.0
-				if \"fsr_scale\" in qg:
-					qg.fsr_scale = 1.0
-				if \"current_preset\" in qg:
-					qg.current_preset = \"desktop_high\"
-				if qg.has_method(\"_apply_settings\"):
-					qg._apply_settings()
-			1:
-				preset_name = \"desktop_balanced\"
-				if qg.has_method(\"apply_preset\"):
-					qg.apply_preset(\"performance\")
-				elif qg.has_method(\"set_preset\"):
-					qg.set_preset(\"performance\")
-				if \"is_mobile\" in qg:
-					qg.is_mobile = false
-				if \"max_fsr_scale\" in qg:
-					qg.max_fsr_scale = 0.85
-				if \"fsr_scale\" in qg:
-					qg.fsr_scale = 0.85
-				if \"current_preset\" in qg:
-					qg.current_preset = \"desktop_balanced\"
-				if qg.has_method(\"_apply_settings\"):
-					qg._apply_settings()
-			2:
-				preset_name = \"performance\"
-				if \"is_mobile\" in qg:
-					qg.is_mobile = true
-				if qg.has_method(\"apply_preset\"):
-					qg.apply_preset(\"performance\")
-				elif qg.has_method(\"set_preset\"):
-					qg.set_preset(\"performance\")
-			3:
-				preset_name = \"battery_saver\"
-				if \"is_mobile\" in qg:
-					qg.is_mobile = true
-				if qg.has_method(\"apply_preset\"):
-					qg.apply_preset(\"battery_saver\")
-				elif qg.has_method(\"set_preset\"):
-					qg.set_preset(\"battery_saver\")
-		
-		if qg.has_method(\"on_quality_preset_selected\"):
-			qg.on_quality_preset_selected(index, preset_name)
 
 func _load_settings() -> void:
-	_ensure_nodes()
 	var config = ConfigFile.new()
-	if config.load(settings_path) == OK:
+	if config.load(SETTINGS_PATH) == OK:
 		var s_val = config.get_value(\"accessibility\", \"ui_scale\", 1.0)
-		if scale_slider:
-			scale_slider.value = s_val
+		scale_slider.value = s_val
 		_on_scale_changed(s_val)
 		
 		var cb_val = config.get_value(\"accessibility\", \"color_blind\", 0)
-		if cb_option:
-			cb_option.selected = cb_val
+		cb_option.selected = cb_val
 		_on_cb_selected(cb_val)
 		
 		var t_val = config.get_value(\"accessibility\", \"use_toggle\", false)
-		if toggle_check:
-			toggle_check.button_pressed = t_val
+		toggle_check.button_pressed = t_val
 		_on_toggle_changed(t_val)
 		
 		var h_on = config.get_value(\"haptics\", \"enabled\", true)
-		if haptics_check:
-			haptics_check.button_pressed = h_on
+		haptics_check.button_pressed = h_on
 		_on_haptics_toggled(h_on)
 		
 		var h_mult = config.get_value(\"haptics\", \"multiplier\", 1.0)
-		if haptics_slider:
-			haptics_slider.value = h_mult
+		haptics_slider.value = h_mult
 		_on_haptics_slider_changed(h_mult)
 
-		var aa_val = config.get_value(\"graphics\", \"aa_mode\", 0)
-		if aa_option:
-			aa_option.selected = aa_val
-		_apply_aa_mode(aa_val)
-
-		var deband_val = config.get_value(\"graphics\", \"debanding\", false)
-		if debanding_check:
-			debanding_check.button_pressed = deband_val
-		_apply_debanding(deband_val)
-
-		var res_val = config.get_value(\"graphics\", \"resolution_scale\", 1.0)
-		if res_slider:
-			res_slider.value = res_val
-		_apply_resolution_scale(res_val)
-
-		var qp_val = config.get_value(\"graphics\", \"quality_preset\", 0)
-		if quality_option:
-			quality_option.selected = qp_val
-		_apply_quality_preset(qp_val)
-	else:
-		if aa_option:
-			_apply_aa_mode(aa_option.selected)
-		if debanding_check:
-			_apply_debanding(debanding_check.button_pressed)
-		if res_slider:
-			_apply_resolution_scale(res_slider.value)
-		if quality_option:
-			_apply_quality_preset(quality_option.selected)
-
 func _save_settings() -> void:
-	_ensure_nodes()
 	var config = ConfigFile.new()
-	config.load(settings_path)
-	if scale_slider:
-		config.set_value(\"accessibility\", \"ui_scale\", scale_slider.value)
-	if cb_option:
-		config.set_value(\"accessibility\", \"color_blind\", cb_option.selected)
-	if toggle_check:
-		config.set_value(\"accessibility\", \"use_toggle\", toggle_check.button_pressed)
-	if haptics_check:
-		config.set_value(\"haptics\", \"enabled\", haptics_check.button_pressed)
-	if haptics_slider:
-		config.set_value(\"haptics\", \"multiplier\", haptics_slider.value)
-	if aa_option:
-		config.set_value(\"graphics\", \"aa_mode\", aa_option.selected)
-	if debanding_check:
-		config.set_value(\"graphics\", \"debanding\", debanding_check.button_pressed)
-	if res_slider:
-		config.set_value(\"graphics\", \"resolution_scale\", res_slider.value)
-	if quality_option:
-		config.set_value(\"graphics\", \"quality_preset\", quality_option.selected)
-	config.save(settings_path)
+	config.set_value(\"accessibility\", \"ui_scale\", scale_slider.value)
+	config.set_value(\"accessibility\", \"color_blind\", cb_option.selected)
+	config.set_value(\"accessibility\", \"use_toggle\", toggle_check.button_pressed)
+	config.set_value(\"haptics\", \"enabled\", haptics_check.button_pressed)
+	config.set_value(\"haptics\", \"multiplier\", haptics_slider.value)
+	config.save(SETTINGS_PATH)
 "
 
 [node name="SettingsMenu" type="Control"]
@@ -384,10 +101,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -300.0
-offset_right = 220.0
-offset_bottom = 300.0
+offset_left = -200.0
+offset_top = -250.0
+offset_right = 200.0
+offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -397,12 +114,12 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 20.0
-offset_top = 16.0
+offset_top = 20.0
 offset_right = -20.0
-offset_bottom = -16.0
+offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="Panel/VBoxContainer"]
 layout_mode = 2
@@ -451,40 +168,3 @@ layout_mode = 2
 max_value = 2.0
 step = 0.1
 value = 1.0
-
-[node name="HSeparator3" type="HSeparator" parent="Panel/VBoxContainer"]
-layout_mode = 2
-
-[node name="GraphicsTitle" type="Label" parent="Panel/VBoxContainer"]
-layout_mode = 2
-text = "Graphics & Anti-Aliasing"
-horizontal_alignment = 1
-
-[node name="AALabel" type="Label" parent="Panel/VBoxContainer"]
-layout_mode = 2
-text = "Anti-Aliasing Mode"
-
-[node name="AAOption" type="OptionButton" parent="Panel/VBoxContainer"]
-layout_mode = 2
-
-[node name="DebandingCheck" type="CheckBox" parent="Panel/VBoxContainer"]
-layout_mode = 2
-text = "Color Debanding (Smooth Sky/Atmo Gradients)"
-
-[node name="ResScaleLabel" type="Label" parent="Panel/VBoxContainer"]
-layout_mode = 2
-text = "Resolution Scale"
-
-[node name="ResolutionSlider" type="HSlider" parent="Panel/VBoxContainer"]
-layout_mode = 2
-min_value = 0.5
-max_value = 1.0
-step = 0.05
-value = 1.0
-
-[node name="QualityLabel" type="Label" parent="Panel/VBoxContainer"]
-layout_mode = 2
-text = "Quality Preset"
-
-[node name="QualityOption" type="OptionButton" parent="Panel/VBoxContainer"]
-layout_mode = 2

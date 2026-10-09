@@ -3,7 +3,6 @@ class_name SurvivalSystem extends Node
 
 signal life_support_changed(current: float, maximum: float)
 signal hazard_protection_changed(current: float, maximum: float)
-signal hazard_protection_warning(level_pct: float)
 signal environment_changed(body_id: StringName, hazard_intensity: float)
 signal player_died()
 signal player_respawned(body_id: StringName, spawn_position: Vector3)
@@ -19,8 +18,6 @@ var max_hazard_protection: float = BASE_HAZARD_PROTECTION
 
 var _life_support: float = BASE_LIFE_SUPPORT
 var _hazard_protection: float = BASE_HAZARD_PROTECTION
-var _warned_25: bool = false
-var _warned_10: bool = false
 
 var current_body_id: StringName = &"Earth"
 var has_breathable_atmosphere: bool = true
@@ -30,7 +27,7 @@ var thermal_hazard: float = 0.0
 var radiation_hazard: float = 0.0
 
 const LIFE_SUPPORT_DRAIN_RATE: float = 100.0 / 900.0 # 15 minutes base in vacuum
-const HAZARD_DRAIN_RATE_BASE: float = 0.185 # per second at max intensity (~10 min suit under Moon 0.9)
+const HAZARD_DRAIN_RATE_BASE: float = 5.0 # per second at max intensity
 const RECHARGE_RATE: float = 20.0 # per second inside safe haven / ship
 
 func _ready() -> void:
@@ -88,7 +85,6 @@ func _recharge(delta: float) -> void:
 	if ls_changed:
 		life_support_changed.emit(_life_support, max_life_support)
 	if hazard_changed:
-		_reset_hazard_warnings_on_increase()
 		hazard_protection_changed.emit(_hazard_protection, max_hazard_protection)
 
 func _drain(delta: float) -> void:
@@ -98,7 +94,6 @@ func _drain(delta: float) -> void:
 			_hazard_protection -= HAZARD_DRAIN_RATE_BASE * current_hazard_intensity * delta
 			_hazard_protection = maxf(0.0, _hazard_protection)
 			hazard_protection_changed.emit(_hazard_protection, max_hazard_protection)
-			_check_hazard_warnings()
 		else:
 			# Hazard breach drains life support rapidly
 			_life_support -= (LIFE_SUPPORT_DRAIN_RATE + HAZARD_DRAIN_RATE_BASE * current_hazard_intensity) * delta
@@ -116,22 +111,6 @@ func _drain(delta: float) -> void:
 		player_died.emit()
 		set_process(false)
 
-func _check_hazard_warnings() -> void:
-	var pct: float = (_hazard_protection / max_hazard_protection) * 100.0
-	if pct < 25.0 and not _warned_25:
-		_warned_25 = true
-		hazard_protection_warning.emit(25.0)
-	if pct < 10.0 and not _warned_10:
-		_warned_10 = true
-		hazard_protection_warning.emit(10.0)
-
-func _reset_hazard_warnings_on_increase() -> void:
-	var pct: float = (_hazard_protection / max_hazard_protection) * 100.0
-	if pct >= 25.0:
-		_warned_25 = false
-	if pct >= 10.0:
-		_warned_10 = false
-
 ## Replenishes a specific amount of life support (e.g. from consumable)
 func replenish_life_support(amount: float) -> void:
 	_life_support = clampf(_life_support + amount, 0.0, max_life_support)
@@ -140,7 +119,6 @@ func replenish_life_support(amount: float) -> void:
 ## Replenishes a specific amount of hazard protection
 func replenish_hazard_protection(amount: float) -> void:
 	_hazard_protection = clampf(_hazard_protection + amount, 0.0, max_hazard_protection)
-	_reset_hazard_warnings_on_increase()
 	hazard_protection_changed.emit(_hazard_protection, max_hazard_protection)
 
 func set_max_life_support(value: float) -> void:
@@ -151,15 +129,12 @@ func set_max_life_support(value: float) -> void:
 func set_max_hazard_protection(value: float) -> void:
 	max_hazard_protection = maxf(1.0, value)
 	_hazard_protection = minf(_hazard_protection, max_hazard_protection)
-	_reset_hazard_warnings_on_increase()
 	hazard_protection_changed.emit(_hazard_protection, max_hazard_protection)
 
 ## Resets player health/suit and respawns at target body
 func respawn(body_id: Variant = &"Earth", spawn_pos: Vector3 = Vector3.ZERO) -> void:
 	_life_support = max_life_support
 	_hazard_protection = max_hazard_protection
-	_warned_25 = false
-	_warned_10 = false
 	set_process(true)
 	set_environment(body_id)
 	life_support_changed.emit(_life_support, max_life_support)
@@ -195,10 +170,6 @@ func from_dict(data: Dictionary) -> void:
 		set_environment(data["current_body_id"])
 	if data.has("is_inside_ship"):
 		is_inside_ship = bool(data["is_inside_ship"])
-
-	var pct: float = (_hazard_protection / max_hazard_protection) * 100.0
-	_warned_25 = pct < 25.0
-	_warned_10 = pct < 10.0
 
 	life_support_changed.emit(_life_support, max_life_support)
 	hazard_protection_changed.emit(_hazard_protection, max_hazard_protection)

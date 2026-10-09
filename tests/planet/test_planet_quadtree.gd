@@ -16,12 +16,14 @@ func test_quadtree_split_and_merge():
 	
 	# Move camera very close to root 0 to trigger split
 	qt.camera_pos = qt.root_nodes[0].center_double
+	qt._update_lod_camera()
 	var visible = []
 	qt._process_node(qt.root_nodes[0], visible)
 	assert_true(qt.root_nodes[0].children.size() > 0, "Root should split when camera is close")
 	
 	# Move camera far away to trigger merge
 	qt.camera_pos = qt.root_nodes[0].center_double.add(DVec3.new(0, 0, 5000000.0))
+	qt._update_lod_camera()
 	visible.clear()
 	qt._process_node(qt.root_nodes[0], visible)
 	assert_true(qt.root_nodes[0].children.is_empty(), "Root should merge (clear children) when camera is far")

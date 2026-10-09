@@ -1,7 +1,14 @@
 extends SceneTree
 
 func _init() -> void:
+	_run_all()
+
+## Async so integration tests can `await` physics frames. Calling a coroutine without `await` would
+## return at its first await and silently report PASS before any assertion ran.
+func _run_all() -> void:
 	print("Running tests...")
+	# Autoloads are instantiated after _init(); give the tree one frame so tests can use them.
+	await process_frame
 	var test_files: Array[String] = []
 	_find_test_files("res://tests", test_files)
 	
@@ -15,6 +22,9 @@ func _init() -> void:
 		if file.ends_with("run_tests.gd") or file.ends_with("test_case.gd"):
 			continue
 			
+		var file_filter: String = OS.get_environment("SH_TEST_FILE")
+		if file_filter != "" and not file.contains(file_filter):
+			continue
 		var script = load(file)
 		if script == null or not script is Script:
 			continue
@@ -27,20 +37,22 @@ func _init() -> void:
 		for method in inst.get_method_list():
 			var name = method["name"]
 			if name.begins_with("test_"):
+				var method_filter: String = OS.get_environment("SH_TEST_METHOD")
+				if method_filter != "" and not name.contains(method_filter):
+					continue
 				total += 1
 				inst._failures.clear()
-				var start_ms: int = Time.get_ticks_msec()
-				inst.call(name)
-				var elapsed_ms: int = Time.get_ticks_msec() - start_ms
+				inst._completed = false
+				inst._needs_completion = false
+				await inst.call(name)
+				if inst._needs_completion and not inst._completed:
+					inst.fail("test aborted before complete() - a script error stopped it")
 				var fails = inst.get_failures()
 				if fails.is_empty():
-					if elapsed_ms > 2500:
-						print("PASS [SLOW %d ms]: %s::%s" % [elapsed_ms, file, name])
-					else:
-						print("PASS: %s::%s" % [file, name])
+					print("PASS: %s::%s" % [file, name])
 					passed += 1
 				else:
-					print("FAIL [%d ms]: %s::%s" % [elapsed_ms, file, name])
+					print("FAIL: %s::%s" % [file, name])
 					for f in fails:
 						print("  - " + f)
 		

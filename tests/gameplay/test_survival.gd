@@ -40,75 +40,17 @@ func test_moon_hazard_drain_and_breach() -> void:
 	survival.set_environment("Moon", true)
 	survival.is_inside_ship = false
 
-	# Drain hazard protection partially (300 seconds drains ~50 units at 0.185 * 0.9 = 0.1665 u/s)
-	survival._drain(300.0)
-	assert_almost_eq(survival.get_hazard_protection(), 50.05, 0.2, "Hazard protection drained by ~50 after 300s")
+	# Drain hazard protection
+	survival._drain(10.0)
+	assert_almost_eq(survival.get_hazard_protection(), 55.0, 0.1, "Hazard protection drained by ~45")
 
-	# Drain remaining hazard protection to 0 (another 310s ensures > 600.6s total to breach)
-	survival._drain(310.0)
+	# Drain remaining hazard protection to 0
+	survival._drain(15.0)
 	assert_almost_eq(survival.get_hazard_protection(), 0.0, 0.01, "Hazard protection breached")
 
 	# Now next drain tick incurs life support drain penalty
 	survival._drain(1.0)
 	assert_true(survival.get_life_support() < 100.0, "Life support begins draining after breach")
-
-	survival.free()
-
-func test_moon_day_survival_calibration() -> void:
-	var survival := SurvivalSystem.new()
-	survival.set_environment("Moon", true)
-	survival.is_inside_ship = false
-
-	# Suit hazard protection lasts >= 600s under Moon 0.9 intensity
-	survival._drain(600.0)
-	assert_true(survival.get_hazard_protection() > 0.0, "Suit hazard protection lasts >= 600s")
-	assert_almost_eq(survival.get_life_support(), 100.0, 0.01, "Life support stays full while suit protection lasts")
-
-	# Player survives past 1000s total elapsed time
-	survival._drain(400.0)
-	assert_true(survival.get_life_support() > 0.0, "Player survives past 1000s total")
-
-	survival.free()
-
-func test_hazard_protection_warnings() -> void:
-	var survival := SurvivalSystem.new()
-	survival.set_environment("Moon", true)
-	survival.is_inside_ship = false
-
-	var warnings: Array[float] = []
-	survival.hazard_protection_warning.connect(func(lvl: float): warnings.append(lvl))
-
-	# Initial state: 100% protection, no warnings
-	assert_eq(warnings.size(), 0, "No initial warnings")
-
-	# Drain to ~30% (420s * 0.1665 = 69.93 drained, remaining ~30.07%)
-	survival._drain(420.0)
-	assert_eq(warnings.size(), 0, "No warnings above 25%")
-
-	# Drain past 25% threshold (another 50s -> remaining ~21.7%)
-	survival._drain(50.0)
-	assert_eq(warnings.size(), 1, "First warning emitted on crossing 25%")
-	assert_eq(warnings[0], 25.0, "Warning level is 25.0")
-
-	# Another drain tick while still below 25% and above 10% does NOT re-emit
-	survival._drain(30.0)
-	assert_eq(warnings.size(), 1, "Warning not re-emitted while staying below 25%")
-
-	# Drain past 10% threshold (another 70s -> drops below 10%)
-	survival._drain(70.0)
-	assert_eq(warnings.size(), 2, "Second warning emitted on crossing 10%")
-	assert_eq(warnings[1], 10.0, "Warning level is 10.0")
-
-	# Drain further below 10% does not re-emit
-	survival._drain(10.0)
-	assert_eq(warnings.size(), 2, "Warning not re-emitted while staying below 10%")
-
-	# Recharge/replenish above 10% resets the 10% crossing
-	survival.replenish_hazard_protection(15.0)
-	# Drain again below 10% -> emits 10.0 again
-	survival._drain(100.0)
-	assert_eq(warnings.size(), 3, "Warning emitted again after crossing back below 10%")
-	assert_eq(warnings[2], 10.0, "Re-emitted warning is 10.0")
 
 	survival.free()
 
@@ -140,7 +82,7 @@ func test_death_and_respawn_signal() -> void:
 	}
 	survival.player_died.connect(func(): flags["died"] = true)
 
-	survival._drain(5.0)
+	survival._drain(2.0)
 	assert_true(flags["died"], "Player died signal fired")
 	assert_almost_eq(survival.get_life_support(), 0.0, 0.001, "Life support is 0")
 

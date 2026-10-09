@@ -13,7 +13,8 @@ static func hash33(p_x: float, p_y: float, p_z: float) -> Vector3:
 	p3.y = p3.y - floor(p3.y)
 	p3.z = p3.z - floor(p3.z)
 	
-	var dot3 = Vector3(p3.y, p3.x, p3.x).dot(Vector3(p3.z + 39.346, p3.y + 39.346, p3.z + 39.346))
+	# Same expression as hash33() in terrain_height.glsl: dot(p, vec3(p.z + c, p.y + c, p.x + c))
+	var dot3 = p3.dot(Vector3(p3.z + 39.346, p3.y + 39.346, p3.x + 39.346))
 	p3 += Vector3(dot3, dot3, dot3)
 	
 	var res = Vector3(
@@ -92,37 +93,18 @@ static func crater_noise_3d(p: Vector3) -> float:
 	return rim * 1.5 - bowl * 0.85 + peak
 
 static func sample_earth_height(dir: Vector3) -> float:
-	var d = dir.normalized()
-	# Equirectangular spherical mapping matching Godot SphereMesh
-	var u = fposmod(atan2(d.x, -d.z) / TAU + 0.5, 1.0)
-	var v = clampf(0.5 - asin(clampf(d.y, -1.0, 1.0)) / PI, 0.0, 1.0)
-	
-	var is_water: float = 0.0
-	var img = _get_water_image()
-	if img != null:
-		var px = clampi(int(u * (img.get_width() - 1)), 0, img.get_width() - 1)
-		var py = clampi(int(v * (img.get_height() - 1)), 0, img.get_height() - 1)
-		is_water = img.get_pixel(px, py).r
-	else:
-		# Deterministic analytical continent/ocean mask fallback
-		is_water = 1.0 if fbm(d * 1.5, 3) < 0.1 else 0.0
-		
-	# Water surfaces are at sea level (0.0)
-	if is_water > 0.45:
-		return 0.0
-		
-	# Continental relief: domain-warped ridged multifractal mountains
-	var land_mask = clampf((0.45 - is_water) * 4.0, 0.0, 1.0)
-	var warp = Vector3(
+	# MUST stay identical to sample_height() in terrain_height.glsl (the GPU path draws this terrain,
+	# the CPU path builds collision and AGL from it). Normalised 0..1 of max_height_m.
+	# A real DEM / water-mask pipeline (Phase D) must update both sides together.
+	var d: Vector3 = dir.normalized()
+	var warp := Vector3(
 		fbm(d + Vector3(1.2, 3.4, 5.6), 4),
 		fbm(d + Vector3(7.8, 9.0, 1.2), 4),
 		fbm(d + Vector3(3.4, 5.6, 7.8), 4)
 	)
-	var noise_val = fbm(d * 3.2 + warp, 7, 0.48)
-	var ridged = 1.0 - abs(noise_val)
-	var mountain_relief = pow(ridged, 2.2)
-	var base_elevation = 0.06 + 0.14 * land_mask
-	return base_elevation + mountain_relief * 0.8 * land_mask
+	var noise_val: float = fbm(d * 3.2 + warp, 6)
+	var ridged: float = 1.0 - absf(noise_val)
+	return pow(ridged, 2.2)
 
 static func sample_moon_height(dir: Vector3) -> float:
 	var d = dir.normalized()

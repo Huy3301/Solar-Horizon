@@ -180,7 +180,9 @@ static func evaluate_landing(
 		}
 		
 	var vspeed: float = linear_velocity.dot(planet_up)
-	var descent_speed: float = abs(vspeed)
+	# Only DOWNWARD speed is a touchdown speed. Lifting off (contact reported for a tick or two after
+	# separation) used to count as a "10 m/s impact" and crash every takeoff.
+	var descent_speed: float = maxf(0.0, -vspeed)
 	var hspeed_vec: Vector3 = linear_velocity - planet_up * vspeed
 	var hspeed: float = hspeed_vec.length()
 	

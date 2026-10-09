@@ -97,8 +97,10 @@ func exit_ship(bypass_landed_check: bool = false) -> bool:
 	
 	# Neutralize ship controls
 	if is_instance_valid(current_ship):
-		if "is_player_controlled" in current_ship:
-			current_ship.is_player_controlled = false
+		if "input_enabled" in current_ship:
+			current_ship.input_enabled = false   # keys pressed on foot must not fly the parked ship
+		if "target_throttle" in current_ship:
+			current_ship.target_throttle = 0.0
 		if "current_throttle" in current_ship:
 			current_ship.current_throttle = 0.0
 		if "control_pitch" in current_ship:
@@ -131,14 +133,13 @@ func enter_ship(ship_target: Node = null) -> bool:
 	if not is_instance_valid(current_ship):
 		return false
 		
-	if "is_player_controlled" in current_ship:
-		current_ship.is_player_controlled = true
-		
 	# Deactivate on-foot rig
 	if is_instance_valid(on_foot_rig):
 		on_foot_rig.set_active(false)
 		on_foot_rig.visible = false
 		
+	if "input_enabled" in current_ship:
+		current_ship.input_enabled = true
 	# Activate ship camera
 	_set_ship_camera_active(true)
 	

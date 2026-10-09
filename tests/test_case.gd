@@ -2,6 +2,16 @@ class_name TestCase extends RefCounted
 
 var tree: SceneTree = null
 var _failures: Array[String] = []
+var _completed: bool = false
+var _needs_completion: bool = false
+
+## Async/integration tests call require_completion() first and complete() last. If a runtime
+## script error aborts the test midway, the runner reports FAIL instead of a silent PASS.
+func require_completion() -> void:
+	_needs_completion = true
+
+func complete() -> void:
+	_completed = true
 
 func get_failures() -> Array[String]:
 	return _failures

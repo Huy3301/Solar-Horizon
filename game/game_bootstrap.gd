@@ -361,8 +361,13 @@ func respawn_player() -> void:
 	if is_instance_valid(survival_system):
 		survival_system.respawn("Earth", _adelaide_base_pos)
 
-	# 2. Reset Ship to Adelaide Base
-	if is_instance_valid(ship):
+	# 2. Reset Ship to Adelaide Base (the real spawn point is owned by MainWorld)
+	var main_world = get_parent()
+	if is_instance_valid(ship) and main_world and main_world.has_method("respawn_ship_at_spawn") and main_world.get("start_mode") == 0:
+		main_world.respawn_ship_at_spawn()
+		ship.landing_gear_deployed = true
+		ship.is_landed = true
+	elif is_instance_valid(ship):
 		ship.linear_velocity = Vector3.ZERO
 		ship.angular_velocity = Vector3.ZERO
 		ship.global_position = _adelaide_base_pos

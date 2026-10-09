@@ -12,6 +12,10 @@ class_name PlanetQuadtree extends Node3D
 @export var transition_altitude_min: float = 120000.0
 
 var camera_pos: DVec3 = DVec3.zero()
+## Camera position for LOD / collision decisions: same direction, but at (radius + height ABOVE THE TERRAIN)
+## instead of above the sea-level sphere. Patch centres sit on the sphere, so without this a ship standing
+## on a 2 km plateau would be "2 km from every patch" and never get fine terrain or a collider.
+var lod_camera_pos: DVec3 = DVec3.zero()
 var planet_center: DVec3 = DVec3.zero()
 var is_terrain_active: bool = true
 var has_skirts: bool = true
@@ -25,7 +29,22 @@ var material_pool: Array[ShaderMaterial] = []
 var gpu_generator: GPUHeightGenerator
 var chunk_streamer: ChunkStreamer
 var current_collider_node: PatchNode = null
-var collision_body: StaticBody3D = null
+var collision_body: StaticBody3D = null  # legacy single-patch collider (kept for API compatibility)
+
+## World-space position of the camera/ship and the planet's orientation, set by PlanetRuntime each frame.
+## Patch instances are placed relative to the camera (small numbers) in world space, never through
+## the planet's own (hundreds-of-km) position, so they stay precise and correctly placed.
+var camera_world_pos: Vector3 = Vector3.ZERO
+var planet_basis: Basis = Basis.IDENTITY
+var last_leaves: Array = []
+
+## Ring of collision patches around the camera (one StaticBody3D per leaf patch)
+@export var max_collision_patches: int = 9
+@export var collision_radius_factor: float = 2.2
+@export var collision_min_radius_m: float = 400.0
+@export var collision_max_altitude_m: float = 30000.0
+var collision_bodies: Dictionary = {}   # PatchNode -> StaticBody3D
+var _collision_pending: Dictionary = {} # PatchNode -> true
 
 class PatchNode:
 	var face: int
@@ -55,11 +74,6 @@ func _ready() -> void:
 	
 	_create_grid_mesh()
 	_init_roots()
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_PREDELETE:
-		if chunk_streamer:
-			chunk_streamer.wait_all()
 
 func _create_grid_mesh() -> void:
 	var st = SurfaceTool.new()
@@ -180,7 +194,22 @@ static func sample_patch_height(face: int, uv: Vector2, body_type: String = "Ear
 	var dir = get_spherified_dir(face, uv)
 	return TerrainNoise.sample_height(dir.x, dir.y, dir.z, body_type)
 
+func _update_lod_camera() -> void:
+	var r: float = camera_pos.length()
+	if r < 1.0:
+		lod_camera_pos = camera_pos
+		return
+	var inv: float = 1.0 / r
+	var dx: float = camera_pos.x * inv
+	var dy: float = camera_pos.y * inv
+	var dz: float = camera_pos.z * inv
+	var terrain_h: float = TerrainNoise.sample_height(dx, dy, dz, body_name) * max_height_m
+	var agl: float = maxf(0.0, r - planet_radius_m - terrain_h)
+	var rr: float = planet_radius_m + agl
+	lod_camera_pos = DVec3.new(dx * rr, dy * rr, dz * rr)
+
 func _process(_delta: float) -> void:
+	_update_lod_camera()
 	# Far LOD altitude check: if camera is far above transition altitude, deactivate quadtree to save GPU
 	var cam_dist = camera_pos.length()
 	var alt_asl = cam_dist - planet_radius_m
@@ -203,8 +232,7 @@ func _deactivate_terrain() -> void:
 	for inst in active_patches:
 		_recycle_instance(inst)
 	active_patches.clear()
-	if collision_body:
-		collision_body.visible = false
+	_clear_collision_ring()
 
 func _activate_terrain() -> void:
 	is_terrain_active = true
@@ -212,7 +240,7 @@ func _activate_terrain() -> void:
 		collision_body.visible = true
 
 func _process_node(node: PatchNode, visible_nodes: Array) -> void:
-	var dist = node.center_double.distance_to(camera_pos)
+	var dist = node.center_double.distance_to(lod_camera_pos)
 	var split_dist = node.bounds_radius * split_distance_factor
 	if dist < split_dist and node.depth < max_depth and visible_nodes.size() < max_active_patches:
 		if node.children.is_empty():
@@ -241,56 +269,115 @@ func _update_instances(visible_nodes: Array) -> void:
 		if not node.instance:
 			node.instance = _get_patch_instance()
 			_setup_instance(node)
-		node.instance.position = node.center_double.to_vector3()
+		node.instance.global_transform = _patch_world_transform(node)
 		current_instances.append(node.instance)
 		
 	for inst in active_patches:
 		if not current_instances.has(inst):
 			_recycle_instance(inst)
 	active_patches = current_instances
-	_update_collision_async(visible_nodes)
+	last_leaves = visible_nodes
 
-func _update_collision_async(visible_nodes: Array) -> void:
-	var best_node = null
-	var min_dist = 50000.0 # Active within 50 km (radar altimeter range)
-	for node in visible_nodes:
-		var d = node.center_double.distance_to(camera_pos) - planet_radius_m
-		if d < min_dist:
-			min_dist = d
-			best_node = node
-			
-	if best_node != current_collider_node and best_node != null and not best_node.generating_collision:
-		best_node.generating_collision = true
-		
-		var node_data = {
-			'face': best_node.face,
-			'offset': best_node.offset,
-			'scale': best_node.scale,
-			'planet_radius_m': planet_radius_m,
-			'max_height_m': max_height_m,
-			'center_dir': best_node.center_dir,
-			'body_type': body_name
-		}
-		
-		chunk_streamer.request_chunk(node_data, Callable(self, "_on_collision_generated").bind(best_node))
+## World transform of a patch: planet orientation, positioned relative to the camera in double precision.
+func _patch_world_transform(node: PatchNode) -> Transform3D:
+	var rel: Vector3 = node.center_double.sub(camera_pos).to_vector3()
+	return Transform3D(planet_basis, camera_world_pos + planet_basis * rel)
+
+func _physics_process(_delta: float) -> void:
+	_update_collision_ring()
+
+func is_collision_ready() -> bool:
+	if collision_bodies.is_empty():
+		return false
+	# ready when the leaf patch closest to the camera has its collider
+	var best: PatchNode = null
+	var best_d: float = INF
+	for node in last_leaves:
+		var d: float = node.center_double.distance_to(lod_camera_pos)
+		if d < best_d:
+			best_d = d
+			best = node
+	return best != null and collision_bodies.has(best)
+
+func _update_collision_ring() -> void:
+	var alt_asl: float = camera_pos.length() - planet_radius_m
+	if alt_asl > collision_max_altitude_m or not is_terrain_active:
+		_clear_collision_ring()
+		return
+	# Nearest leaf patches within reach
+	var cands: Array = []
+	for node in last_leaves:
+		var reach: float = maxf(node.bounds_radius * collision_radius_factor, collision_min_radius_m)
+		var d: float = node.center_double.distance_to(lod_camera_pos)
+		if d < reach + node.bounds_radius:
+			cands.append({"node": node, "d": d})
+	cands.sort_custom(func(a, b): return a["d"] < b["d"])
+	var desired: Array = []
+	for i in range(mini(max_collision_patches, cands.size())):
+		desired.append(cands[i]["node"])
+
+	for node in desired:
+		if not collision_bodies.has(node) and not _collision_pending.has(node):
+			_request_collision(node)
+
+	# Only drop colliders that are no longer desired once the nearest few are covered (no holes)
+	var nearest_covered: bool = true
+	for i in range(mini(3, desired.size())):
+		if not collision_bodies.has(desired[i]):
+			nearest_covered = false
+	if nearest_covered:
+		for node in collision_bodies.keys():
+			if not desired.has(node):
+				var body: StaticBody3D = collision_bodies[node]
+				if is_instance_valid(body):
+					body.queue_free()
+				collision_bodies.erase(node)
+
+	# Keep every collider glued to its patch in world space (planet-local data, camera-relative placement)
+	for node in collision_bodies.keys():
+		var body: StaticBody3D = collision_bodies[node]
+		if not is_instance_valid(body):
+			collision_bodies.erase(node)
+			continue
+		var t: Transform3D = _patch_world_transform(node)
+		if body.global_transform.origin.distance_to(t.origin) > 0.01 or not body.global_transform.basis.is_equal_approx(t.basis):
+			body.global_transform = t
+
+func _request_collision(node: PatchNode) -> void:
+	_collision_pending[node] = true
+	var node_data = {
+		'face': node.face,
+		'offset': node.offset,
+		'scale': node.scale,
+		'planet_radius_m': planet_radius_m,
+		'max_height_m': max_height_m,
+		'center_dir': node.center_dir,
+		'body_type': body_name
+	}
+	chunk_streamer.request_chunk(node_data, Callable(self, "_on_collision_generated").bind(node))
 
 func _on_collision_generated(collision_shape: ConcavePolygonShape3D, node: PatchNode) -> void:
-	node.generating_collision = false
-	if current_collider_node != node:
-		current_collider_node = node
-		if collision_body:
-			collision_body.queue_free()
-		collision_body = StaticBody3D.new()
-		collision_body.collision_layer = 1
-		collision_body.collision_mask = 1
-		var shape = CollisionShape3D.new()
-		shape.shape = collision_shape
-		collision_body.add_child(shape)
-		collision_body.position = node.center_double.to_vector3()
-		add_child(collision_body)
-	else:
-		if collision_body:
-			collision_body.position = node.center_double.to_vector3()
+	_collision_pending.erase(node)
+	if not is_inside_tree() or collision_bodies.has(node):
+		return
+	collision_shape.backface_collision = true
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 1
+	body.top_level = true
+	var shape := CollisionShape3D.new()
+	shape.shape = collision_shape
+	body.add_child(shape)
+	add_child(body)
+	body.global_transform = _patch_world_transform(node)
+	collision_bodies[node] = body
+
+func _clear_collision_ring() -> void:
+	for node in collision_bodies.keys():
+		var body: StaticBody3D = collision_bodies[node]
+		if is_instance_valid(body):
+			body.queue_free()
+	collision_bodies.clear()
 
 func _get_patch_instance() -> MeshInstance3D:
 	if patch_pool.size() > 0:
@@ -299,6 +386,7 @@ func _get_patch_instance() -> MeshInstance3D:
 		return inst
 	var inst = MeshInstance3D.new()
 	inst.mesh = grid_mesh
+	inst.top_level = true
 	add_child(inst)
 	return inst
 
@@ -320,7 +408,7 @@ func _setup_instance(node: PatchNode) -> void:
 	mat.set_shader_parameter("patch_resolution", float(patch_resolution))
 	
 	# Geomorphing calculation: blend odd vertices to coarse level near split threshold
-	var dist = node.center_double.distance_to(camera_pos)
+	var dist = node.center_double.distance_to(lod_camera_pos)
 	var split_dist = node.bounds_radius * split_distance_factor
 	var morph_start = split_dist * 0.65
 	var morph = clampf((dist - morph_start) / maxf(1.0, split_dist - morph_start), 0.0, 1.0)

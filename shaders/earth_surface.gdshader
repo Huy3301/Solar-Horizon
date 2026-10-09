@@ -4,12 +4,11 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 // Photorealistic Earth planetary surface shader for Low Earth Orbit (LEO) and surface views
 // Features:
 // 1. Physically-based Rayleigh atmospheric aerial perspective & terminator extinction
-// 2. Triple-lobe anisotropic ocean sunglint track with Fresnel reflectance (R0 ~ 0.02 -> 1.0)
-// 3. Dynamic cloud shadows cast onto continents and oceans using sun direction projection
-// 4. Procedural multi-scale geological relief detail for low-orbit flyovers (High tier)
-// 5. Night-side city lights with warm sodium vapor tint, obscured by cloud cover
-// 6. Terminator twilight amber/crimson scattering band
-// 7. Quality tier support (0 = Mobile / Low, 1 = Desktop / High)
+// 2. Anisotropic ocean solar specular glint & coastal turquoise bathymetry
+// 3. Dynamic cloud shadows cast onto continents and oceans
+// 4. Procedural multi-scale geological relief detail for low-orbit flyovers
+// 5. High-dynamic range nocturnal city lights with atmospheric diffusion
+// 6. Quality tier support (0 = Mobile / Low, 1 = Desktop / High)
 
 uniform int quality_tier : hint_range(0, 1) = 1;
 
@@ -21,12 +20,10 @@ uniform sampler2D cloud_map : filter_linear_mipmap, repeat_enable;
 
 uniform vec3 sun_direction = vec3(0.707, 0.35, 0.612);
 uniform float night_lights_intensity : hint_range(0.0, 8.0) = 4.5;
-uniform vec3 night_lights_tint : source_color = vec3(1.0, 0.78, 0.42);
+uniform vec3 night_lights_tint : source_color = vec3(1.0, 0.85, 0.52);
 uniform float atmosphere_density : hint_range(0.1, 4.0) = 1.35;
 uniform float planet_rotation : hint_range(-6.28318, 6.28318) = 0.0;
 uniform float cloud_rotation : hint_range(-6.28318, 6.28318) = 0.0;
-uniform float cloud_shadow_intensity : hint_range(0.0, 1.0) = 0.75;
-uniform float micro_relief_strength : hint_range(0.0, 1.0) = 0.35;
 
 varying vec3 v_world_normal;
 varying vec3 v_world_pos;
@@ -69,12 +66,11 @@ void fragment() {
 	vec3 V = normalize(CAMERA_POSITION_WORLD - v_world_pos);
 	
 	if (quality_tier == 1) {
-		// Micro-relief on land for crisp detail during close approaches (Desktop High Tier)
-		if (is_water < 0.6) {
+		// Micro-relief on land for crisp detail during close approaches (Desktop)
+		if (is_water < 0.5) {
 			float n1 = micro_noise(surface_uv * 1800.0);
 			float n2 = micro_noise(surface_uv * 4200.0) * 0.5;
-			float n3 = micro_noise(surface_uv * 9600.0) * 0.25;
-			vec2 micro_grad = vec2(n1 + n3 - 0.625, n2 - 0.25) * micro_relief_strength;
+			vec2 micro_grad = vec2(n1 - 0.5, n2 - 0.25) * 0.35;
 			normal_sample.xy += micro_grad * (1.0 - is_water);
 		}
 	}
@@ -83,28 +79,24 @@ void fragment() {
 	
 	float n_dot_l = dot(N, L);
 	float n_dot_v = clamp(dot(N, V), 0.0, 1.0);
-	float day_factor = smoothstep(-0.06, 0.20, n_dot_l);
-	float night_factor = 1.0 - smoothstep(-0.16, 0.06, n_dot_l);
-	
-	// Dynamic cloud shadow cast onto surface using sun direction projection
-	float lon = surface_uv.x * 2.0 * PI;
-	vec3 T_east = vec3(-sin(lon), 0.0, cos(lon));
-	vec3 B_north = cross(N, T_east);
-	float shadow_u = dot(L, T_east);
-	float shadow_v = dot(L, B_north);
-	vec2 shadow_offset = vec2(shadow_u, shadow_v) * 0.005;
-	float cloud_shadow_raw = texture(cloud_map, cloud_uv - shadow_offset).a;
-	float cloud_shadow = smoothstep(0.12, 0.85, cloud_shadow_raw) * cloud_shadow_intensity * day_factor;
+	float day_factor = smoothstep(-0.06, 0.18, n_dot_l);
+	float night_factor = 1.0 - smoothstep(-0.15, 0.05, n_dot_l);
 	
 	// Atmospheric extinction on incoming sunlight (golden/red sunset at terminator)
 	float sun_zenith = clamp(n_dot_l, 0.0, 1.0);
 	float airmass_sun = 1.0 / (sun_zenith + 0.08);
 	vec3 sun_tint = exp(-vec3(0.08, 0.22, 0.55) * airmass_sun * 0.7);
-	sun_tint = mix(vec3(1.0, 0.38, 0.08), vec3(1.0, 0.98, 0.95), smoothstep(0.02, 0.35, n_dot_l));
+	sun_tint = mix(vec3(1.0, 0.42, 0.12), vec3(1.0, 0.98, 0.95), smoothstep(0.02, 0.35, n_dot_l));
+	
+	// Dynamic cloud shadow cast onto surface
+	vec3 L_proj = L - N * dot(L, N);
+	vec2 shadow_offset = L_proj.xz * 0.0035;
+	float cloud_shadow_raw = texture(cloud_map, cloud_uv - shadow_offset).a;
+	float cloud_shadow = smoothstep(0.15, 0.85, cloud_shadow_raw) * 0.72 * day_factor;
 	
 	// Ocean bathymetry & shallow coastal water enhancement
 	vec3 surface_rgb = base_color.rgb;
-	if (is_water > 0.35) {
+	if (is_water > 0.4) {
 		vec3 deep_blue = vec3(0.015, 0.065, 0.18);
 		vec3 shallow_turquoise = vec3(0.03, 0.28, 0.42);
 		surface_rgb = mix(deep_blue, shallow_turquoise, clamp(base_color.g * 2.2, 0.0, 0.75));
@@ -112,39 +104,24 @@ void fragment() {
 	
 	// Apply sunlight extinction and cloud shadows
 	surface_rgb *= sun_tint * (1.0 - cloud_shadow);
-
-	// Terminator twilight scattering band (grazing sunlight in dense lower atmosphere)
-	float terminator_band = smoothstep(-0.15, 0.02, n_dot_l) * (1.0 - smoothstep(0.02, 0.18, n_dot_l));
-	vec3 twilight_glow = vec3(1.0, 0.38, 0.08) * terminator_band * 0.55 * (1.0 - cloud_shadow * 0.5);
-	surface_rgb += twilight_glow;
 	
-	// Triple-lobe anisotropic ocean sunglint track with Fresnel reflectance (R0 ~ 0.02 -> 1.0)
+	// Ocean solar specular glint (blinding realistic sun reflection on water)
 	if (is_water > 0.15) {
 		vec3 H = normalize(L + V);
 		float n_dot_h = max(0.0, dot(N, H));
-		
-		// Triple-lobe: sharp specular core, mid-lobe capillary waves, broad swell halo
-		float glint_core = pow(n_dot_h, 480.0) * 16.0;
-		float glint_mid = pow(n_dot_h, 90.0) * 2.4;
-		float glint_broad = pow(n_dot_h, 20.0) * 0.65;
-		
-		// Anisotropic elongation along solar reflection plane
-		vec3 spec_axis = normalize(cross(N, cross(L, N)));
-		float aniso_term = 1.0 + 0.35 * pow(max(0.0, dot(H, spec_axis)), 2.0);
-		
-		// Schlick Fresnel reflectance with R0 ~ 0.02
-		float v_dot_h = clamp(dot(V, H), 0.0, 1.0);
+		float glint_core = pow(n_dot_h, 320.0) * 12.0;
+		float glint_broad = pow(n_dot_h, 24.0) * 0.45;
+		float v_dot_h = max(0.0, dot(V, H));
 		float fresnel = 0.02 + 0.98 * pow(1.0 - v_dot_h, 5.0);
-		
-		vec3 glint = (glint_core + glint_mid + glint_broad) * aniso_term * sun_tint * fresnel * is_water * (1.0 - cloud_shadow);
+		vec3 glint = (glint_core + glint_broad) * sun_tint * fresnel * is_water * (1.0 - cloud_shadow);
 		surface_rgb += glint;
 	}
 	
-	// Atmospheric Rayleigh aerial perspective (haze over terrain and oceans towards the limb)
-	float optical_depth = atmosphere_density * (1.0 / (n_dot_v + 0.12) - 0.85);
-	float haze_amount = 1.0 - exp(-max(0.0, optical_depth) * 0.36);
-	vec3 rayleigh_haze = mix(vec3(0.18, 0.56, 1.0), vec3(1.0, 0.45, 0.15), smoothstep(0.22, -0.06, n_dot_l));
-	surface_rgb = mix(surface_rgb, rayleigh_haze, haze_amount * day_factor * 0.85);
+	// Atmospheric Rayleigh aerial perspective (haze over terrain towards the horizon)
+	float optical_depth = atmosphere_density * (1.0 / (n_dot_v + 0.14) - 0.85);
+	float haze_amount = 1.0 - exp(-optical_depth * 0.38);
+	vec3 rayleigh_haze = mix(vec3(0.15, 0.52, 0.98), vec3(1.0, 0.55, 0.22), smoothstep(0.20, -0.05, n_dot_l));
+	surface_rgb = mix(surface_rgb, rayleigh_haze, haze_amount * day_factor * 0.82);
 	
 	// Physical material PBR properties
 	ROUGHNESS = mix(0.82, 0.06, is_water);
@@ -152,14 +129,10 @@ void fragment() {
 	SPECULAR = mix(0.12, 0.98, is_water);
 	ALBEDO = surface_rgb;
 	
-	// Night-side city lights with warm sodium vapor tint, obscured by cloud cover
-	float cloud_cover_over_city = texture(cloud_map, cloud_uv).a;
-	float cloud_obscuration = 1.0 - smoothstep(0.15, 0.80, cloud_cover_over_city) * 0.88;
-	vec3 city_glow = lights_sample * night_lights_tint * night_lights_intensity * night_factor * cloud_obscuration;
-	
-	// Atmospheric diffusion around night-side cities
+	// City night lights with atmospheric diffusion
+	vec3 night_glow = lights_sample * night_lights_tint * night_lights_intensity * night_factor;
 	float city_rim = pow(1.0 - n_dot_v, 2.5);
-	vec3 atmo_night_diffusion = vec3(0.08, 0.16, 0.32) * city_rim * 0.35 * night_factor;
+	vec3 atmo_night_diffusion = vec3(0.08, 0.18, 0.35) * city_rim * 0.4 * night_factor;
 	
-	EMISSION = city_glow + atmo_night_diffusion;
+	EMISSION = night_glow + atmo_night_diffusion;
 }

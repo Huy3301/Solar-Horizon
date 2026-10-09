@@ -35,7 +35,6 @@ QualityGovernor="*res://game/autoload/quality_governor.gd"
 AccessibilityManager="*res://game/autoload/accessibility_manager.gd"
 HapticsManager="*res://game/autoload/haptics_manager.gd"
 OriginService="*res://game/core/origin_service.gd"
-AudioManager="*res://game/audio/audio_manager.gd"
 
 [display]
 
@@ -46,6 +45,24 @@ window/stretch/aspect="expand"
 window/handheld/orientation=6
 
 [input]
+
+boost={
+"deadzone": 0.15,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194325,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":7,"pressure":0.0,"pressed":false,"script":null)
+]
+}
+pulse_drive={
+"deadzone": 0.15,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194306,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":8,"pressure":0.0,"pressed":false,"script":null)
+]
+}
+vtol_down={
+"deadzone": 0.15,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194326,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
 
 pitch_up={
 "deadzone": 0.15,
@@ -235,43 +252,21 @@ quick_load={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194340,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
-boost={
-"deadzone": 0.15,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194325,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":10,"pressure":0.0,"pressed":false,"script":null)
-]
-}
-pulse_drive={
-"deadzone": 0.15,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194306,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":9,"pressure":0.0,"pressed":false,"script":null)
-]
-}
-space_cruise={
-"deadzone": 0.15,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":16,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":67,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
-]
-}
 
 [physics]
 
-3d/default_linear_damp=0.0
-3d/default_angular_damp=0.0
 3d/physics_engine="Jolt Physics"
 common/physics_interpolation=true
-jolt_physics_3d/limits/max_linear_velocity=20000.0
+3d/default_linear_damp=0.0
+3d/default_angular_damp=0.0
+jolt_physics_3d/limits/max_linear_velocity=100000.0
 jolt_physics_3d/limits/max_angular_velocity=125.66
 
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.001, 0.0015, 0.003, 1)
-anti_aliasing/quality/use_debanding=true
-anti_aliasing/quality/msaa_3d=2
-anti_aliasing/quality/msaa_3d.mobile=1
-anti_aliasing/quality/screen_space_aa=1
+anti_aliasing/quality/screen_space_aa=2
 anti_aliasing/quality/screen_space_aa.mobile=1
-anti_aliasing/quality/use_taa=true
-anti_aliasing/quality/use_taa.mobile=false
 scaling_3d/mode.mobile=1
 scaling_3d/scale.mobile=0.67

@@ -110,7 +110,7 @@ func can_warp(conditions: Dictionary) -> bool:
 
 func advance(delta: float) -> void:
 	var factor = WARP_LEVELS[warp_index]
-	var dt_step = float(delta) * (float(factor) if is_on_rails() else 1.0)
+	var dt_step = float(delta) * float(factor)
 	sim_time_s += dt_step
 	
 	if is_on_rails():
@@ -287,14 +287,3 @@ func _get_body_mu(id: StringName) -> float:
 
 func _get_dominant_body(pos: DVec3, t: float) -> StringName:
 	return GravityService.dominant_body(pos, t)
-
-## Computes normalized direction vector from world_pos towards the Sun.
-## Returns a sane fallback (Vector3.UP) if world_pos is at or near the Sun's position.
-func get_sun_direction(world_pos: Vector3 = Vector3.ZERO) -> Vector3:
-	var sun_dpos: DVec3 = GravityService.body_position(&"Sun", sim_time_s)
-	var rel_dpos: DVec3 = sun_dpos.sub(DVec3.from_vector3(world_pos))
-	var dir: Vector3 = rel_dpos.to_vector3()
-	if dir.length_squared() < 1e-8:
-		return Vector3.UP
-	return dir.normalized()
-

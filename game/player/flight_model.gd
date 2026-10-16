@@ -253,3 +253,28 @@ static func calculate_agl(
 			agl = min(agl, gear_dist)
 			
 	return max(0.0, agl)
+
+
+## S3: Low-gravity Moon landing assist (auto-damps horizontal slip & cushions vertical sink rate).
+const S3_LOW_GRAVITY_ASSIST_MAX_ALT_M: float = 250.0
+const S3_MOON_GRAVITY_MPS2: float = 1.62
+
+
+## Computes assistive counter-thrust acceleration vector in body-local up/horizontal frame.
+static func compute_low_gravity_landing_assist(
+	velocity_local: Vector3,
+	up_normal: Vector3,
+	altitude_agl_m: float,
+	surface_gravity_mps2: float
+) -> Vector3:
+	if altitude_agl_m > S3_LOW_GRAVITY_ASSIST_MAX_ALT_M or altitude_agl_m < 0.0:
+		return Vector3.ZERO
+	var up: Vector3 = up_normal.normalized()
+	var vertical_speed: float = velocity_local.dot(up)
+	var lateral_vel: Vector3 = velocity_local - up * vertical_speed
+	var safe_sink_rate: float = -clampf(altitude_agl_m * 0.08 + 1.2, 1.2, 18.0)
+	var vertical_correction: float = 0.0
+	if vertical_speed < safe_sink_rate:
+		vertical_correction = (safe_sink_rate - vertical_speed) * 2.4 + surface_gravity_mps2
+	var lateral_damping: Vector3 = -lateral_vel * 1.8
+	return up * vertical_correction + lateral_damping

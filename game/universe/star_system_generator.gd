@@ -90,3 +90,50 @@ func _generate_planets() -> void:
 		planets.append(planet)
 		
 		current_distance_au += rng.randf_range(0.4, 2.0) * current_distance_au
+
+
+## S4: Deterministic 64-bit SplitMix64 spectral class selector (fixes all-M-star bug).
+const S4_SPECTRAL_CLASSES: Array[String] = ["O", "B", "A", "F", "G", "K", "M"]
+
+
+static func splitmix64_hash(seed_value: int, salt: int) -> int:
+	var z: int = seed_value + salt + 0x6A09E667F3BCC909
+	z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9
+	z = (z ^ (z >> 27)) * 0x94D049BB133111EB
+	return absi(z ^ (z >> 31))
+
+
+## Returns deterministic star class ("O", "B", "A", "F", "G", "K", "M") from `system_seed`.
+static func select_spectral_class_code(system_seed: int) -> String:
+	var bucket: int = splitmix64_hash(system_seed, 404) % 1000
+	if bucket < 10:
+		return "O"
+	elif bucket < 40:
+		return "B"
+	elif bucket < 105:
+		return "A"
+	elif bucket < 230:
+		return "F"
+	elif bucket < 460:
+		return "G"
+	elif bucket < 720:
+		return "K"
+	return "M"
+
+
+## Generates deterministic per-body terrain parameters from body seed and equilibrium temperature.
+static func generate_body_terrain_params(body_seed: int, equilibrium_temp_k: float) -> Dictionary:
+	var h1: int = splitmix64_hash(body_seed, 11)
+	var h2: int = splitmix64_hash(body_seed, 29)
+	var max_relief_m: float = 1200.0 + float(h1 % 4800)
+	var roughness: float = 0.35 + float(h2 % 550) / 1000.0
+	var biome_family: String = "temperate"
+	if equilibrium_temp_k > 360.0:
+		biome_family = "scorched"
+	elif equilibrium_temp_k < 210.0:
+		biome_family = "frozen"
+	return {
+		"max_relief_m": max_relief_m,
+		"roughness": roughness,
+		"biome_family": biome_family
+	}

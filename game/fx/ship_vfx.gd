@@ -335,3 +335,46 @@ func get_rcs_active(socket_name: String) -> bool:
 func get_atmosphere_density() -> float:
 	ensure_initialized()
 	return current_atmosphere_density
+
+
+## S2d: Speed-sensation cues (FOV kick, speed streaks, vignette, pulse tunnel, gear deploy).
+const S2D_BASE_FOV_DEG: float = 75.0
+const S2D_BOOST_FOV_KICK_DEG: float = 14.0
+const S2D_PULSE_FOV_KICK_DEG: float = 24.0
+const S2D_STREAK_MIN_SPEED_MPS: float = 40.0
+const S2D_STREAK_MAX_SPEED_MPS: float = 450.0
+
+
+## Computes deterministic S2d motion cues without per-frame allocations.
+static func compute_speed_sensation_metrics(
+	speed_mps: float,
+	is_boosting: bool,
+	is_pulse_active: bool
+) -> Dictionary:
+	var target_fov: float = S2D_BASE_FOV_DEG
+	if is_pulse_active:
+		target_fov += S2D_PULSE_FOV_KICK_DEG
+	elif is_boosting:
+		target_fov += S2D_BOOST_FOV_KICK_DEG
+	else:
+		target_fov += clampf(speed_mps / S2D_STREAK_MAX_SPEED_MPS, 0.0, 1.0) * 4.5
+
+	var streak_alpha: float = 0.0
+	if is_pulse_active:
+		streak_alpha = 1.0
+	elif speed_mps > S2D_STREAK_MIN_SPEED_MPS:
+		streak_alpha = clampf(
+			(speed_mps - S2D_STREAK_MIN_SPEED_MPS) / (S2D_STREAK_MAX_SPEED_MPS - S2D_STREAK_MIN_SPEED_MPS),
+			0.0,
+			1.0
+		)
+
+	var vignette: float = 0.35 if is_pulse_active else (0.18 if is_boosting else 0.0)
+	var plume_side_gain: float = clampf(0.48 + 0.52 * (speed_mps / 200.0), 0.48, 1.0)
+	return {
+		"target_fov_deg": target_fov,
+		"streak_alpha": streak_alpha,
+		"vignette_intensity": vignette,
+		"pulse_tunnel_mix": 1.0 if is_pulse_active else 0.0,
+		"plume_side_gain": plume_side_gain
+	}

@@ -1,242 +1,152 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode cull_back, depth_draw_opaque;
 
-// Terrain Patch Shader - Cube-Sphere CDLOD
-// Supports procedural PBR palettes, CDLOD geomorphing and skirts, detail normals, and horizon AO.
+// S2c Debug Views: 0 = Lit Terrain, 1 = World Normals, 2 = Normalized Height, 3 = Patch ID, 4 = Slope & Grid
+uniform int debug_view_mode : hint_range(0, 4) = 0;
 
-uniform int body_type : hint_range(0, 1) = 0; // 0 = Earth, 1 = Moon
-uniform vec2 patch_offset = vec2(0.0);
-uniform float patch_scale = 1.0;
-uniform int face_index = 0;
-uniform float planet_radius = 637100.0;
-uniform float max_height = 8848.0;
-uniform vec3 patch_center_local = vec3(0.0);
-uniform float patch_resolution = 33.0;
+uniform sampler2D height_tex : filter_nearest, repeat_disable;
+uniform bool use_height_tex = true;
+uniform float patch_size_m = 2000.0;
+uniform float max_relief_m = 3500.0;
+uniform float skirt_depth_m = 24.0;
 uniform float morph_factor : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 patch_origin_local = vec3(0.0);
+uniform vec3 planet_center_local = vec3(0.0, -637100.0, 0.0);
+uniform vec3 sun_direction_world = vec3(0.35, 0.85, 0.39);
+uniform vec3 patch_debug_color = vec3(0.25, 0.65, 0.90);
 
-uniform bool use_gpu_height = false;
-uniform sampler2D height_map;
-uniform sampler2D water_mask : hint_default_white, filter_linear_mipmap, repeat_enable;
+uniform vec3 col_deep_basalt : source_color = vec3(0.16, 0.18, 0.21);
+uniform vec3 col_coastal_sand : source_color = vec3(0.74, 0.68, 0.50);
+uniform vec3 col_lowland_grass : source_color = vec3(0.23, 0.43, 0.17);
+uniform vec3 col_highland_shrub : source_color = vec3(0.36, 0.40, 0.24);
+uniform vec3 col_steep_cliff : source_color = vec3(0.34, 0.32, 0.29);
+uniform vec3 col_alpine_snow : source_color = vec3(0.92, 0.95, 0.98);
 
-// Biome / Altitude / Slope thresholds
-uniform float slope_threshold : hint_range(0.0, 1.0) = 0.72;
-uniform float slope_blend : hint_range(0.01, 0.5) = 0.12;
-uniform float sand_altitude : hint_range(0.0, 1000.0) = 150.0;
-uniform float snow_altitude : hint_range(500.0, 9000.0) = 2800.0;
-uniform float snow_blend : hint_range(50.0, 1000.0) = 400.0;
-uniform float detail_normal_strength : hint_range(0.0, 2.0) = 0.65;
-uniform float ao_strength : hint_range(0.0, 1.0) = 0.85;
+uniform vec3 haze_tint : source_color = vec3(0.56, 0.73, 0.94);
+uniform float haze_falloff = 0.000042;
 
-vec3 hash33(vec3 p) {
-	p = p * 0.1031;
-	p -= floor(p);
-	float dot_val = dot(p, vec3(p.z + 39.346, p.y + 39.346, p.x + 39.346));
-	p += vec3(dot_val);
-	vec3 res = vec3(p.x + p.y, p.x + p.z, p.y + p.z);
-	return res - floor(res);
+varying vec3 v_patch_local_pos;
+varying vec3 v_sphere_normal;
+varying float v_height_m;
+varying float v_camera_dist_m;
+
+float sample_height_exact(vec2 uv) {
+	if (!use_height_tex) {
+		return 0.15 * max_relief_m;
+	}
+	vec2 clamped = clamp(uv, vec2(0.0), vec2(1.0));
+	vec2 texel = clamped * 32.0;
+	ivec2 i0 = ivec2(floor(texel));
+	ivec2 i1 = min(i0 + ivec2(1, 1), ivec2(32, 32));
+	vec2 f = fract(texel);
+
+	float h00 = texelFetch(height_tex, i0, 0).r;
+	float h10 = texelFetch(height_tex, ivec2(i1.x, i0.y), 0).r;
+	float h01 = texelFetch(height_tex, ivec2(i0.x, i1.y), 0).r;
+	float h11 = texelFetch(height_tex, i1, 0).r;
+
+	float h_sample = mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+	return (abs(h_sample) <= 2.0) ? (h_sample * max_relief_m) : h_sample;
 }
 
-float get_noise_3d(vec3 p) {
+float hash_detail(vec3 p) {
+	vec3 q = fract(p * 0.1031);
+	q += dot(q, q.yzx + 33.33);
+	return fract((q.x + q.y) * q.z);
+}
+
+float fbm_detail(vec3 p) {
 	vec3 i = floor(p);
-	vec3 f = p - i;
-	vec3 u = f * f * (3.0 - 2.0 * f);
-	
-	float n000 = hash33(i).x;
-	float n100 = hash33(i + vec3(1.0, 0.0, 0.0)).x;
-	float n010 = hash33(i + vec3(0.0, 1.0, 0.0)).x;
-	float n110 = hash33(i + vec3(1.0, 1.0, 0.0)).x;
-	float n001 = hash33(i + vec3(0.0, 0.0, 1.0)).x;
-	float n101 = hash33(i + vec3(1.0, 0.0, 1.0)).x;
-	float n011 = hash33(i + vec3(0.0, 1.0, 1.0)).x;
-	float n111 = hash33(i + vec3(1.0, 1.0, 1.0)).x;
-	
-	float nx00 = mix(n000, n100, u.x);
-	float nx10 = mix(n010, n110, u.x);
-	float nx01 = mix(n001, n101, u.x);
-	float nx11 = mix(n011, n111, u.x);
-	
-	float nxy0 = mix(nx00, nx10, u.y);
-	float nxy1 = mix(nx01, nx11, u.y);
-	
-	return mix(nxy0, nxy1, u.z) * 2.0 - 1.0;
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash_detail(i);
+	float b = hash_detail(i + vec3(1.0, 0.0, 0.0));
+	float c = hash_detail(i + vec3(0.0, 1.0, 0.0));
+	float d = hash_detail(i + vec3(1.0, 1.0, 0.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
-
-float fbm(vec3 p, int octaves) {
-	float value = 0.0;
-	float amp = 0.5;
-	float freq = 1.0;
-	for (int i = 0; i < octaves; i++) {
-		value += amp * get_noise_3d(p * freq);
-		freq *= 2.0;
-		amp *= 0.5;
-	}
-	return value;
-}
-
-float crater_noise_3d(vec3 p) {
-	vec3 i = floor(p);
-	vec3 f = p - i;
-	float min_dist = 10.0;
-	for (int z = -1; z <= 1; z++) {
-		for (int y = -1; y <= 1; y++) {
-			for (int x = -1; x <= 1; x++) {
-				vec3 cell = vec3(float(x), float(y), float(z));
-				vec3 h = hash33(i + cell);
-				vec3 feature_pt = cell + h * 0.65;
-				float d = length(f - feature_pt);
-				min_dist = min(min_dist, d);
-			}
-		}
-	}
-	float rim = smoothstep(0.52, 0.38, min_dist) * smoothstep(0.22, 0.38, min_dist);
-	float bowl = smoothstep(0.36, 0.0, min_dist);
-	float peak = smoothstep(0.08, 0.0, min_dist) * 0.35;
-	return rim * 1.5 - bowl * 0.85 + peak;
-}
-
-float sample_height_analytic(vec3 dir, int body) {
-	if (body == 1) {
-		float highlands = fbm(dir * 1.8, 3) * 0.25;
-		float c_large = crater_noise_3d(dir * 4.8) * 0.38;
-		float c_med = crater_noise_3d(dir * 13.5 + vec3(3.7, 8.2, 5.1)) * 0.22;
-		float c_small = crater_noise_3d(dir * 30.0 + vec3(9.1, 14.5, 2.3)) * 0.10;
-		return clamp(0.35 + highlands + c_large + c_med + c_small, 0.0, 1.0);
-	}
-	vec3 warp = vec3(
-		fbm(dir + vec3(1.2, 3.4, 5.6), 4),
-		fbm(dir + vec3(7.8, 9.0, 1.2), 4),
-		fbm(dir + vec3(3.4, 5.6, 7.8), 4)
-	);
-	float noise_val = fbm(dir * 3.2 + warp, 6);
-	float ridged = 1.0 - abs(noise_val);
-	return pow(ridged, 2.2);
-}
-
-vec3 get_spherified_dir(int face, vec2 face_uv) {
-	vec2 p = face_uv * 2.0 - 1.0;
-	vec3 v;
-	if (face == 0) v = vec3(1.0, -p.y, -p.x);
-	else if (face == 1) v = vec3(-1.0, -p.y, p.x);
-	else if (face == 2) v = vec3(p.x, 1.0, p.y);
-	else if (face == 3) v = vec3(p.x, -1.0, -p.y);
-	else if (face == 4) v = vec3(p.x, -p.y, 1.0);
-	else if (face == 5) v = vec3(-p.x, -p.y, -1.0);
-	else v = vec3(0.0);
-	
-	float x2 = v.x * v.x;
-	float y2 = v.y * v.y;
-	float z2 = v.z * v.z;
-	return normalize(vec3(
-		v.x * sqrt(max(0.0, 1.0 - y2/2.0 - z2/2.0 + y2*z2/3.0)),
-		v.y * sqrt(max(0.0, 1.0 - x2/2.0 - z2/2.0 + x2*z2/3.0)),
-		v.z * sqrt(max(0.0, 1.0 - x2/2.0 - y2/2.0 + x2*y2/3.0))
-	));
-}
-
-varying vec3 v_world_pos;
-varying vec3 v_dir;
-varying float v_height;
-varying float v_altitude;
 
 void vertex() {
-	vec2 face_uv = patch_offset + UV * patch_scale;
-	vec3 dir = get_spherified_dir(face_index, face_uv);
-	
-	float h = 0.0;
-	if (use_gpu_height) {
-		h = texture(height_map, UV).r;
-	} else {
-		h = sample_height_analytic(dir, body_type);
-	}
-	
-	// Geomorphing
-	if (morph_factor > 0.001) {
-		vec2 grid_coord = UV * (patch_resolution - 1.0);
-		vec2 grid_odd = fract(grid_coord * 0.5) * 2.0;
-		bool odd_x = (grid_odd.x > 0.4 && grid_odd.x < 1.6);
-		bool odd_y = (grid_odd.y > 0.4 && grid_odd.y < 1.6);
-		if (odd_x || odd_y) {
-			vec2 uv_coarse = UV;
-			if (odd_x) uv_coarse.x = (floor(grid_coord.x * 0.5) * 2.0) / (patch_resolution - 1.0);
-			if (odd_y) uv_coarse.y = (floor(grid_coord.y * 0.5) * 2.0) / (patch_resolution - 1.0);
-			vec3 dir_coarse = get_spherified_dir(face_index, patch_offset + uv_coarse * patch_scale);
-			float h_coarse = sample_height_analytic(dir_coarse, body_type);
-			h = mix(h, h_coarse, morph_factor);
-		}
-	}
-	
-	v_height = h;
-	v_dir = dir;
-	v_altitude = h * max_height;
-	
-	vec3 world_pos_from_center = dir * (planet_radius + h * max_height);
-	
-	// Skirts
-	if (COLOR.r > 0.5) {
-		float skirt_depth = max_height * 0.4 + (patch_scale * planet_radius * 0.015);
-		world_pos_from_center -= dir * skirt_depth;
-	}
-	
-	VERTEX = world_pos_from_center - patch_center_local;
-	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec2 grid_coord = UV * 32.0;
+	vec2 odd_frac = fract(grid_coord * 0.5) * 2.0;
+	vec2 morphed_uv = clamp(UV - (odd_frac / 32.0) * morph_factor, vec2(0.0), vec2(1.0));
+
+	float h_m = sample_height_exact(morphed_uv);
+	float is_skirt = step(0.5, UV2.x);
+	float skirt_drop = is_skirt * clamp(patch_size_m * 0.015, 8.0, 80.0);
+
+	vec3 world_base = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 radial_up = normalize(world_base - planet_center_local);
+	vec3 displaced_world = world_base + radial_up * (h_m - skirt_drop);
+
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(displaced_world, 1.0)).xyz;
+	v_sphere_normal = radial_up;
+	v_height_m = h_m;
+	v_patch_local_pos = displaced_world - patch_origin_local;
+	v_camera_dist_m = length(CAMERA_POSITION_WORLD - displaced_world);
 }
 
 void fragment() {
-	vec3 N = normalize(NORMAL);
-	vec3 up_dir = normalize(v_dir);
-	float up_dot = clamp(dot(N, up_dir), 0.0, 1.0);
-	
-	vec3 micro_p = v_world_pos * 0.15;
-	float micro_noise_val = get_noise_3d(micro_p);
-	vec3 detail_norm = vec3(
-		get_noise_3d(micro_p + vec3(0.05, 0.0, 0.0)) - micro_noise_val,
-		get_noise_3d(micro_p + vec3(0.0, 0.05, 0.0)) - micro_noise_val,
-		get_noise_3d(micro_p + vec3(0.0, 0.0, 0.05)) - micro_noise_val
-	) * 20.0;
-	vec3 final_normal = normalize(N + detail_norm * detail_normal_strength * 0.2);
-	
-	vec3 final_albedo = vec3(0.5);
-	float final_roughness = 0.8;
-	
-	if (body_type == 1) {
-		vec3 mare_basalt = vec3(0.18, 0.18, 0.19);
-		vec3 highlands = vec3(0.54, 0.55, 0.57);
-		vec3 bright_ejecta = vec3(0.74, 0.75, 0.78);
-		
-		float mare_factor = smoothstep(0.42, 0.35, v_height);
-		float ejecta_factor = smoothstep(0.70, 0.85, v_height);
-		
-		vec3 regolith = mix(highlands, mare_basalt, mare_factor);
-		regolith = mix(regolith, bright_ejecta, ejecta_factor);
-		
-		float cliff = smoothstep(0.75, 0.40, up_dot);
-		regolith = mix(regolith, regolith * 0.7, cliff);
-		
-		final_albedo = regolith;
-		final_roughness = 0.90 - ejecta_factor * 0.15;
+	float duv = 1.0 / 32.0;
+	float world_step_m = max(patch_size_m * duv, 1.0);
+
+	float h_w = sample_height_exact(UV - vec2(duv, 0.0));
+	float h_e = sample_height_exact(UV + vec2(duv, 0.0));
+	float h_s = sample_height_exact(UV - vec2(0.0, duv));
+	float h_n = sample_height_exact(UV + vec2(0.0, duv));
+
+	vec3 up = normalize(v_sphere_normal);
+	vec3 ref_axis = (abs(up.y) < 0.99) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+	vec3 tangent_u = normalize(cross(ref_axis, up));
+	vec3 tangent_v = normalize(cross(up, tangent_u));
+
+	float dh_du = (h_e - h_w) / (2.0 * world_step_m);
+	float dh_dv = (h_n - h_s) / (2.0 * world_step_m);
+
+	vec3 world_normal = normalize(up - tangent_u * dh_du - tangent_v * dh_dv);
+	NORMAL = normalize((VIEW_MATRIX * vec4(world_normal, 0.0)).xyz);
+
+	float slope = clamp(1.0 - dot(world_normal, up), 0.0, 1.0);
+	float h_norm = clamp(v_height_m / max(max_relief_m, 1.0), 0.0, 1.0);
+
+	float detail_fine = fbm_detail(v_patch_local_pos * 0.12);
+	float detail_macro = fbm_detail(v_patch_local_pos * 0.008);
+	float detail_mod = mix(0.86, 1.14, mix(detail_fine, detail_macro, 0.5));
+
+	vec3 biome_col = mix(col_coastal_sand, col_lowland_grass, smoothstep(0.01, 0.09, h_norm));
+	biome_col = mix(biome_col, col_highland_shrub, smoothstep(0.28, 0.52, h_norm));
+	biome_col = mix(biome_col, col_steep_cliff, smoothstep(0.52, 0.74, h_norm));
+	biome_col = mix(biome_col, col_alpine_snow, smoothstep(0.72, 0.88, h_norm + detail_macro * 0.06));
+
+	float cliff_weight = smoothstep(0.16, 0.42, slope);
+	vec3 rock_col = mix(col_steep_cliff, col_deep_basalt, smoothstep(0.42, 0.75, slope));
+	vec3 terrain_rgb = mix(biome_col, rock_col, cliff_weight) * detail_mod;
+
+	float horizon_ao = clamp(1.0 - slope * 0.55, 0.40, 1.0);
+	float haze_mix = clamp(1.0 - exp(-v_camera_dist_m * haze_falloff), 0.0, 0.82);
+	vec3 final_rgb = mix(terrain_rgb, haze_tint, haze_mix);
+
+	if (debug_view_mode == 1) {
+		ALBEDO = world_normal * 0.5 + 0.5;
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
+	} else if (debug_view_mode == 2) {
+		ALBEDO = vec3(h_norm, 1.0 - abs(h_norm - 0.5) * 2.0, 1.0 - h_norm);
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
+	} else if (debug_view_mode == 3) {
+		ALBEDO = patch_debug_color;
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
+	} else if (debug_view_mode == 4) {
+		float grid_edge = max(step(0.93, fract(UV.x * 32.0)), step(0.93, fract(UV.y * 32.0)));
+		ALBEDO = mix(vec3(slope, 1.0 - slope, 0.25), vec3(1.0, 0.9, 0.1), grid_edge);
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
 	} else {
-		vec3 sand = vec3(0.76, 0.70, 0.50);
-		vec3 grass = vec3(0.22, 0.44, 0.15);
-		vec3 rock = vec3(0.36, 0.34, 0.32);
-		vec3 snow = vec3(0.92, 0.94, 0.97);
-		
-		float rock_weight = smoothstep(slope_threshold, slope_threshold - slope_blend, up_dot);
-		float sand_weight = smoothstep(sand_altitude + 50.0, sand_altitude - 50.0, v_altitude);
-		float snow_weight = smoothstep(snow_altitude - snow_blend, snow_altitude + snow_blend, v_altitude);
-		
-		vec3 lowland = mix(grass, sand, sand_weight * (1.0 - rock_weight));
-		vec3 midland = mix(lowland, rock, rock_weight);
-		vec3 highland = mix(midland, snow, snow_weight * (1.0 - rock_weight * 0.5));
-		
-		final_albedo = highland;
-		final_roughness = mix(0.65, 0.88, rock_weight);
-		final_roughness = mix(final_roughness, 0.32, snow_weight);
+		ALBEDO = final_rgb;
+		ROUGHNESS = mix(0.88, 0.58, smoothstep(0.72, 0.90, h_norm));
+		METALLIC = 0.0;
+		AO = horizon_ao;
 	}
-	
-	float ao = clamp(v_height * 1.5, 0.2, 1.0);
-	final_albedo *= mix(1.0, ao, ao_strength);
-	
-	ALBEDO = final_albedo;
-	ROUGHNESS = final_roughness;
-	NORMAL = final_normal;
 }

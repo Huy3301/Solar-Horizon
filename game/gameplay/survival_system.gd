@@ -173,3 +173,21 @@ func from_dict(data: Dictionary) -> void:
 
 	life_support_changed.emit(_life_support, max_life_support)
 	hazard_protection_changed.emit(_hazard_protection, max_hazard_protection)
+
+
+## S3: 10-minute (600 s) EVA suit life-support target & lunar surface thermal drain helper.
+const S3_EVA_SUIT_CAPACITY_SECONDS: float = 600.0
+const S3_LUNAR_DAY_TEMP_K: float = 390.0
+const S3_LUNAR_NIGHT_TEMP_K: float = 110.0
+
+
+## Computes remaining EVA oxygen after `elapsed_s` on EVA (10-minute baseline capacity).
+static func compute_eva_oxygen_remaining(
+	initial_oxygen_s: float,
+	elapsed_s: float,
+	o2_upgrade_tier: int = 0
+) -> float:
+	var tier_multiplier: float = 1.0 + float(clampi(o2_upgrade_tier, 0, 3)) * 0.25
+	var max_cap: float = S3_EVA_SUIT_CAPACITY_SECONDS * tier_multiplier
+	var start_val: float = minf(initial_oxygen_s, max_cap)
+	return maxf(0.0, start_val - maxf(0.0, elapsed_s))

@@ -139,3 +139,27 @@ func load_state(state: Dictionary) -> void:
 		discoveries = state.duplicate(true)
 		credits = 0
 	credits_changed.emit(credits)
+
+
+## S5: Discovery upload credit calculation & speed-tier upgrade progression helpers.
+const S5_BASE_UPLOAD_CREDITS: int = 250
+
+
+static func compute_upload_payout(discovery_count: int, rarity_bonus: float = 1.0) -> int:
+	if discovery_count <= 0:
+		return 0
+	return int(round(float(discovery_count * S5_BASE_UPLOAD_CREDITS) * maxf(rarity_bonus, 1.0)))
+
+
+static func compute_upgraded_speed_limits(
+	base_max_speed_mps: float,
+	base_pulse_range_m: float,
+	upgrade_tier: int
+) -> Dictionary:
+	var clamped_tier: int = clampi(upgrade_tier, 0, 3)
+	var speed_mult: float = 1.0 + float(clamped_tier) * 0.30
+	var range_mult: float = 1.0 + float(clamped_tier) * 0.50
+	return {
+		"max_speed_mps": base_max_speed_mps * speed_mult,
+		"pulse_range_m": base_pulse_range_m * range_mult
+	}

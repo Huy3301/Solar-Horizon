@@ -141,3 +141,33 @@ func _apply_settings() -> void:
 			"scatter_density": scatter_density,
 			"cloud_render_distance": cloud_render_distance
 		})
+
+
+## S2e: Mobile terrain LOD budget (depth 8 = ~120 m vertex spacing) & ADPF thermal headroom step-down.
+const S2E_MOBILE_MAX_LOD_DEPTH: int = 8
+const S2E_DESKTOP_MAX_LOD_DEPTH: int = 16
+const S2E_THERMAL_WARN_HEADROOM: float = 0.85
+const S2E_THERMAL_CRITICAL_HEADROOM: float = 0.95
+const S2E_GPU_BUDGET_MS: float = 12.5
+
+
+## Returns the terrain quadtree max depth for the active platform/thermal state.
+static func get_terrain_max_lod_depth(is_mobile_platform: bool, thermal_headroom: float = 0.5) -> int:
+	if is_mobile_platform:
+		if thermal_headroom >= S2E_THERMAL_CRITICAL_HEADROOM:
+			return S2E_MOBILE_MAX_LOD_DEPTH - 1
+		return S2E_MOBILE_MAX_LOD_DEPTH
+	return S2E_DESKTOP_MAX_LOD_DEPTH
+
+
+## Computes recommended FSR 1.0 render scale based on ADPF thermal headroom and GPU frame time.
+static func compute_thermal_render_scale(
+	current_scale: float,
+	thermal_headroom: float,
+	avg_gpu_ms: float
+) -> float:
+	if thermal_headroom >= S2E_THERMAL_CRITICAL_HEADROOM:
+		return 0.60
+	if thermal_headroom >= S2E_THERMAL_WARN_HEADROOM or avg_gpu_ms > S2E_GPU_BUDGET_MS:
+		return maxf(0.60, current_scale - 0.05)
+	return clampf(current_scale, 0.60, 1.0)

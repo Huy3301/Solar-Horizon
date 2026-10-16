@@ -126,3 +126,33 @@ func from_dict(data: Dictionary) -> void:
 		stats[str(k)] = float(st_dict[k])
 
 	stats_changed.emit(stats)
+
+
+## S3: Atomic crafting transaction helper (guarantees zero partial deductions on failure).
+static func execute_atomic_craft(
+	stock: Dictionary,
+	required_inputs: Dictionary,
+	output_item: String,
+	output_count: int = 1
+) -> bool:
+	if output_item.is_empty() or output_count <= 0:
+		return false
+	for ing_key: Variant in required_inputs.keys():
+		var item_id: String = str(ing_key)
+		var needed: int = int(required_inputs[ing_key])
+		if needed <= 0:
+			continue
+		if int(stock.get(item_id, 0)) < needed:
+			return false
+	for ing_key: Variant in required_inputs.keys():
+		var item_id: String = str(ing_key)
+		var needed: int = int(required_inputs[ing_key])
+		if needed <= 0:
+			continue
+		var left: int = int(stock.get(item_id, 0)) - needed
+		if left <= 0:
+			stock.erase(item_id)
+		else:
+			stock[item_id] = left
+	stock[output_item] = int(stock.get(output_item, 0)) + output_count
+	return true

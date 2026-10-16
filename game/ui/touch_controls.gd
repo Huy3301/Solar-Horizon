@@ -72,3 +72,39 @@ func set_flight_mode(flight: bool) -> void:
 			btn.visible = not flight
 	if _flight_root:
 		_flight_root.visible = flight
+
+
+## S2e: Touch steering (stick + gyro) & Samsung Galaxy S26+ safe-area scaling.
+const S2E_STICK_DEADZONE: float = 0.12
+const S2E_GYRO_GAIN: float = 0.65
+const S2E_S26_PLUS_WIDTH_PX: float = 3120.0
+const S2E_S26_PLUS_HEIGHT_PX: float = 1440.0
+
+
+## Computes radial deadzoned steering vector (X = roll, Y = pitch) with response curve.
+static func compute_touch_steering_vector(
+	raw_offset_px: Vector2,
+	max_radius_px: float,
+	gyro_rad_s: Vector3 = Vector3.ZERO,
+	use_gyro: bool = false
+) -> Vector2:
+	var result: Vector2 = Vector2.ZERO
+	if max_radius_px > 0.001:
+		var length_px: float = raw_offset_px.length()
+		var norm: float = clampf(length_px / max_radius_px, 0.0, 1.0)
+		if norm > S2E_STICK_DEADZONE:
+			var remapped: float = (norm - S2E_STICK_DEADZONE) / (1.0 - S2E_STICK_DEADZONE)
+			var curved: float = pow(remapped, 1.6)
+			result = (raw_offset_px / length_px) * curved
+	if use_gyro:
+		result.x = clampf(result.x - gyro_rad_s.z * S2E_GYRO_GAIN, -1.0, 1.0)
+		result.y = clampf(result.y + gyro_rad_s.x * S2E_GYRO_GAIN, -1.0, 1.0)
+	return result
+
+
+## Computes UI scale factor for high-DPI mobile displays like Samsung Galaxy S26+ (3120x1440).
+static func compute_s26_hud_scale(viewport_size: Vector2i) -> float:
+	var short_edge: float = float(mini(viewport_size.x, viewport_size.y))
+	if short_edge <= 0.0:
+		return 1.0
+	return clampf(short_edge / 1080.0, 0.85, 1.45)

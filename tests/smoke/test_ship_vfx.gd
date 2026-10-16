@@ -13,25 +13,21 @@ func test_engine_plume_shader() -> void:
 	
 	if plume_shader:
 		var code: String = plume_shader.code
-		assert_true(code.contains("shock_diamond_frequency"), "Plume shader contains shock_diamond_frequency uniform")
-		assert_true(code.contains("shock_speed"), "Plume shader contains animated shock_speed uniform")
-		assert_true(code.contains("atmosphere_density"), "Plume shader contains atmosphere_density uniform")
+		assert_true(code.contains("atmospheric_pressure_atm"), "Plume shader responds to atmospheric pressure")
 		assert_true(code.contains("expansion_factor"), "Plume shader contains expansion_factor uniform")
-		assert_true(code.contains("plume_color_core"), "Plume shader contains plume_color_core uniform")
-		assert_true(code.contains("plume_color_mid"), "Plume shader contains plume_color_mid uniform")
-		assert_true(code.contains("plume_color_outer"), "Plume shader contains plume_color_outer uniform")
-		assert_true(code.contains("plume_color_edge"), "Plume shader contains plume_color_edge uniform")
-		assert_true(code.contains("sin("), "Plume shader contains sin waves for shock diamonds")
-		assert_true(code.contains("cos("), "Plume shader contains cos rings for shock diamonds")
+		assert_true(code.contains("inner_color"), "Plume shader contains inner_color uniform")
+		assert_true(code.contains("outer_color"), "Plume shader contains outer_color uniform")
+		assert_true(code.contains("throttle"), "Plume shader contains throttle uniform")
+		assert_true(code.contains("side_visibility"), "Plume core remains visible from side angles")
+		assert_true(code.contains("shock_diamonds"), "Plume shader retains animated shock diamonds")
 		
 		# Test instantiation on a material
 		var mat = ShaderMaterial.new()
 		mat.shader = plume_shader
-		mat.set_shader_parameter("atmosphere_density", 0.0)  # Vacuum
+		mat.set_shader_parameter("atmospheric_pressure_atm", 0.0)  # Vacuum
 		mat.set_shader_parameter("expansion_factor", 1.5)
-		mat.set_shader_parameter("thrust_intensity", 1.0)
-		mat.set_shader_parameter("shock_diamond_frequency", 8.0)
-		assert_almost_eq(mat.get_shader_parameter("atmosphere_density"), 0.0, 1e-4, "Vacuum atmosphere density set correctly")
+		mat.set_shader_parameter("throttle", 1.0)
+		assert_almost_eq(mat.get_shader_parameter("atmospheric_pressure_atm"), 0.0, 1e-4, "Vacuum pressure set correctly")
 		assert_almost_eq(mat.get_shader_parameter("expansion_factor"), 1.5, 1e-4, "Expansion factor set correctly")
 
 func test_rcs_puff_shader() -> void:

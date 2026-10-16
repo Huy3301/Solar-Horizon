@@ -98,8 +98,8 @@ const S4_SPECTRAL_CLASSES: Array[String] = ["O", "B", "A", "F", "G", "K", "M"]
 
 static func splitmix64_hash(seed_value: int, salt: int) -> int:
 	var z: int = seed_value + salt + 0x6A09E667F3BCC909
-	z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9
-	z = (z ^ (z >> 27)) * 0x94D049BB133111EB
+	z = (z ^ (z >> 30)) * -4658895280553007687
+	z = (z ^ (z >> 27)) * -7723592293110705685
 	return absi(z ^ (z >> 31))
 
 

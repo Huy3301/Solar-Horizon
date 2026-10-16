@@ -320,9 +320,9 @@ func _apply_plume_uniforms(plume: MeshInstance3D) -> void:
 	if mat == null and plume.mesh and plume.mesh.material is ShaderMaterial:
 		mat = plume.mesh.material as ShaderMaterial
 	if mat:
-		mat.set_shader_parameter("atmosphere_density", current_atmosphere_density)
+		mat.set_shader_parameter("atmospheric_pressure_atm", current_atmosphere_density)
 		mat.set_shader_parameter("expansion_factor", expansion_factor)
-		mat.set_shader_parameter("thrust_intensity", current_throttle)
+		mat.set_shader_parameter("throttle", current_throttle)
 
 func get_reentry_heat() -> float:
 	ensure_initialized()

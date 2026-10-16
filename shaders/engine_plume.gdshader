@@ -3,6 +3,7 @@ render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
 
 uniform float throttle : hint_range(0.0, 1.0) = 0.0;
 uniform float atmospheric_pressure_atm : hint_range(0.0, 2.0) = 1.0;
+uniform float expansion_factor : hint_range(0.2, 3.0) = 1.0;
 uniform vec4 inner_color : source_color = vec4(0.68, 0.90, 1.0, 1.0);
 uniform vec4 outer_color : source_color = vec4(1.0, 0.46, 0.12, 1.0);
 uniform float plume_brightness = 3.2;
@@ -12,7 +13,7 @@ varying float v_axial_uv;
 void vertex() {
 	v_axial_uv = clamp(UV.y, 0.0, 1.0);
 	float vacuum_Bell = mix(1.75, 1.0, clamp(atmospheric_pressure_atm, 0.0, 1.0));
-	VERTEX.xz *= mix(1.0, vacuum_Bell, v_axial_uv) * (0.45 + 0.55 * throttle);
+	VERTEX.xz *= mix(1.0, vacuum_Bell, v_axial_uv) * expansion_factor * (0.45 + 0.55 * throttle);
 }
 
 void fragment() {

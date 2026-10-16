@@ -52,6 +52,42 @@ func _process(_delta: float) -> void:
 func set_sun_direction(dir: Vector3) -> void:
 	sun_direction = dir
 
+## Called every frame by the world: `up` = local planet up, `density` = 1 on the ground .. 0 in space.
+var _sun_light: DirectionalLight3D
+
+func set_atmosphere(up: Vector3, density: float) -> void:
+	density = clampf(density, 0.0, 1.0)
+	if sky_material:
+		sky_material.set_shader_parameter("planet_up", up)
+		sky_material.set_shader_parameter("atmosphere_density", density)
+	if not (world_env_node and world_env_node.environment):
+		return
+	var env: Environment = world_env_node.environment
+	var sun_el: float = sun_direction.normalized().dot(up)
+	var day: float = smoothf(-0.12, 0.22, sun_el)
+	# Sky light fills shadows in daylight; fog gives distance haze that melts terrain into the horizon
+	var space_ambient := Color(0.04, 0.07, 0.12)
+	var day_ambient := Color(0.40, 0.50, 0.66)
+	env.ambient_light_color = space_ambient.lerp(day_ambient, density * day)
+	env.fog_enabled = density > 0.05
+	env.fog_light_color = Color(0.62, 0.77, 0.95) * (0.1 + 0.9 * day)
+	env.fog_density = 0.000012 * density
+	env.fog_sky_affect = 0.0
+	# Daylight on the ground: the space-tuned glow/exposure/sun washes bright terrain out to white-blue.
+	var k: float = density * day
+	env.glow_intensity = lerpf(0.85, 0.25, k)
+	env.glow_bloom = lerpf(0.15, 0.02, k)
+	env.tonemap_exposure = lerpf(1.1, 0.8, k)
+	if _sun_light == null or not is_instance_valid(_sun_light):
+		var lights: Array = find_children("*", "DirectionalLight3D", true, false)
+		_sun_light = lights[0] if not lights.is_empty() else null
+	if _sun_light:
+		_sun_light.light_energy = lerpf(2.4, 1.5, k)
+
+static func smoothf(edge0: float, edge1: float, x: float) -> float:
+	var t: float = clampf((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
 func set_quality_tier(tier: int) -> void:
 	quality_tier = tier
 

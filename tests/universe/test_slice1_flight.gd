@@ -214,3 +214,22 @@ func test_crash_respawn_returns_to_the_ground_spawn() -> void:
 	assert_false(ship.is_crashed, "recovered")
 	_cleanup(w)
 	complete()
+
+func test_ocean_sphere_hidden_near_the_ground_visible_from_orbit() -> void:
+	require_completion()
+	var w = await _make_world()
+	var ocean: Node3D = w.get_node("EarthGlobe").get_node("PlanetRuntime").get_node("OceanRenderer")
+	await _step(60)
+	assert_false(ocean.visible, "ocean sphere hidden at ground level (it painted blue wedges over the terrain)")
+	var ship: RigidBody3D = w.get_node("Ship")
+	var su = _origin().local_to_universe(ship.global_position).offset
+	var earth = GravityService.body_position(&"Earth", _clock().sim_time_s)
+	var up: Vector3 = su.sub(earth).normalized().to_vector3()
+	# move the ship up to 300 km (above the terrain transition)
+	_origin().origin.offset = earth.add(DVec3.new(up.x * 937100.0, up.y * 937100.0, up.z * 937100.0))
+	ship.freeze = false
+	ship.linear_velocity = Vector3.ZERO
+	await _step(30)
+	assert_true(ocean.visible, "ocean sphere visible from orbit")
+	_cleanup(w)
+	complete()

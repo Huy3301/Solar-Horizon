@@ -13,6 +13,12 @@ uniform vec3 sun_color : source_color = vec3(1.0, 0.98, 0.92);
 uniform float sun_disk_size : hint_range(0.001, 0.05) = 0.009;
 uniform float sun_corona_size : hint_range(0.01, 0.5) = 0.08;
 
+// Daytime sky seen from INSIDE an atmosphere. density 1 = ground level, 0 = vacuum (pure space sky).
+uniform vec3 planet_up = vec3(0.0, 1.0, 0.0);
+uniform float atmosphere_density : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 sky_zenith_color : source_color = vec3(0.09, 0.28, 0.70);
+uniform vec3 sky_horizon_color : source_color = vec3(0.62, 0.77, 0.95);
+
 uniform float star_density : hint_range(50.0, 600.0) = 320.0;
 uniform float star_brightness : hint_range(0.1, 5.0) = 1.3;
 uniform float milky_way_intensity : hint_range(0.0, 5.0) = 1.6;
@@ -161,6 +167,8 @@ void sky() {
 		}
 	}
 
+	vec3 stars_layer = space_color;
+
 	// 4. SOLAR DISK & CORONA
 	float cos_sun = dot(dir, L);
 	float angle_to_sun = acos(clamp(cos_sun, -1.0, 1.0));
@@ -175,5 +183,26 @@ void sky() {
 		space_color += sun_color * wide_glare;
 	}
 
-	COLOR = space_color;
+	vec3 sun_layer = space_color - stars_layer;
+
+	// 5. ATMOSPHERE (Rayleigh-style gradient, sunset tint, Mie glow, stars fade out in daylight)
+	vec3 final_col = space_color;
+	if (atmosphere_density > 0.001) {
+		vec3 up = normalize(planet_up);
+		float mu = dot(dir, up);                       // sin(elevation)
+		float sun_el = dot(L, up);
+		float day = smoothstep(-0.12, 0.22, sun_el);
+		float twilight = smoothstep(-0.25, 0.02, sun_el) * (1.0 - smoothstep(0.02, 0.35, sun_el));
+		float h = pow(1.0 - clamp(mu, 0.0, 1.0), 2.6);
+		vec3 sky_col = mix(sky_zenith_color, sky_horizon_color, h);
+		float sun_near = pow(max(cos_sun, 0.0), 6.0);
+		sky_col = mix(sky_col, vec3(1.0, 0.52, 0.26), twilight * sun_near * 0.9);
+		sky_col = mix(sky_col, sky_horizon_color * 0.45, smoothstep(0.0, -0.25, mu));   // hazy below the horizon
+		sky_col += sun_color * pow(max(cos_sun, 0.0), 24.0) * 0.35 * day;
+		vec3 atm_col = sky_col * (0.02 + 0.98 * day) * 1.25 + vec3(0.004, 0.006, 0.012);
+		float k = atmosphere_density;
+		float stars_vis = 1.0 - k * day;
+		final_col = stars_layer * stars_vis + sun_layer + atm_col * k;
+	}
+	COLOR = final_col;
 }

@@ -14,6 +14,9 @@ uniform int face_index = 0;
 uniform float planet_radius = 637100.0;
 uniform float max_height = 8848.0;
 uniform vec3 patch_center_local = vec3(0.0);
+// Patch centre reduced modulo 8192 m in DOUBLE precision on the CPU. Noise sampled at raw world positions
+// (hundreds of km) quantises to ~1 cm and shows up as per-pixel speckle once amplified into normals.
+uniform vec3 patch_noise_origin = vec3(0.0);
 uniform float patch_resolution = 33.0;
 uniform float morph_factor : hint_range(0.0, 1.0) = 0.0;
 
@@ -149,10 +152,32 @@ vec3 get_spherified_dir(int face, vec2 face_uv) {
 }
 
 varying vec3 v_world_pos;
+varying vec3 v_local_pos;
 varying vec3 v_dir;
 varying float v_height;
 varying float v_altitude;
 varying vec3 v_patch_normal;
+
+// The compute shader writes texel i at patch uv = i / (res - 1). texture() samples texel centres at
+// (i + 0.5) / res and, for R32F, may not filter linearly on every GPU (nearest = stair-stepped terrain and
+// striped normals). Fetch the 4 texels exactly and blend by hand.
+float tex_h(vec2 uv) {
+	float res = patch_resolution;
+	vec2 t = clamp(uv, vec2(0.0), vec2(1.0)) * (res - 1.0);
+	ivec2 i0 = ivec2(floor(t));
+	vec2 f = t - vec2(i0);
+	ivec2 i1 = min(i0 + ivec2(1), ivec2(int(res) - 1));
+	float h00 = texelFetch(height_map, i0, 0).r;
+	float h10 = texelFetch(height_map, ivec2(i1.x, i0.y), 0).r;
+	float h01 = texelFetch(height_map, ivec2(i0.x, i1.y), 0).r;
+	float h11 = texelFetch(height_map, i1, 0).r;
+	return mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+}
+
+vec3 gpu_surface_pos(vec2 uv) {
+	vec3 d = get_spherified_dir(face_index, patch_offset + uv * patch_scale);
+	return d * (planet_radius + tex_h(uv) * max_height);
+}
 
 void vertex() {
 	vec2 face_uv = patch_offset + UV * patch_scale;
@@ -160,7 +185,7 @@ void vertex() {
 	
 	float h = 0.0;
 	if (use_gpu_height) {
-		h = texture(height_map, UV).r;
+		h = tex_h(UV);
 	} else {
 		h = sample_height_analytic(dir, body_type);
 	}
@@ -190,34 +215,57 @@ void vertex() {
 	
 	// Skirts: pull outer boundary vertices downwards to seal LOD cracks
 	if (COLOR.r > 0.5) {
-		float skirt_depth = max_height * 0.4 + (patch_scale * planet_radius * 0.015);
+		// Skirts only need to cover LOD cracks (tens of metres), not 40% of the tallest mountain: the old depth
+		// (3.5 km+) made huge walls visible whenever terrain in front was lower than a far patch edge.
+		float skirt_depth = max(8.0, patch_scale * planet_radius * 0.004);
 		world_pos_from_center -= dir * skirt_depth;
 	}
 	
 	VERTEX = world_pos_from_center - patch_center_local;
 	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_patch_normal = dir;
+	v_local_pos = VERTEX;
+
+	// Surface normal. The mesh's own normal is meaningless (flat grid), and the old shader never set one,
+	// so terrain was lit and slope-coloured from garbage. GPU heights: central differences here.
+	// Analytic heights: the fragment derives a facet normal from screen-space derivatives instead (cheap).
+	if (use_gpu_height) {
+		float eps = 1.0 / (patch_resolution - 1.0);
+		vec3 pa = gpu_surface_pos(min(UV + vec2(eps, 0.0), vec2(1.0)));
+		vec3 pb = gpu_surface_pos(max(UV - vec2(eps, 0.0), vec2(0.0)));
+		vec3 pc = gpu_surface_pos(min(UV + vec2(0.0, eps), vec2(1.0)));
+		vec3 pd = gpu_surface_pos(max(UV - vec2(0.0, eps), vec2(0.0)));
+		vec3 n = cross(pa - pb, pc - pd);
+		if (dot(n, dir) < 0.0) n = -n;
+		NORMAL = normalize(n);
+	} else {
+		NORMAL = dir;
+	}
 }
 
+
 void fragment() {
-	vec3 N = normalize(NORMAL);
-	vec3 up_dir = normalize(v_dir);
+	// NORMAL arrives in VIEW space; v_dir is in planet-local axes. Do all lighting maths in WORLD space.
+	vec3 N_view = normalize(NORMAL);
+	if (!use_gpu_height) {
+		N_view = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+		if (dot(N_view, VIEW) < 0.0) N_view = -N_view;
+	}
+	vec3 N = normalize((INV_VIEW_MATRIX * vec4(N_view, 0.0)).xyz);
+	vec3 up_dir = normalize((MODEL_MATRIX * vec4(v_dir, 0.0)).xyz);
 	float up_dot = clamp(dot(N, up_dir), 0.0, 1.0);
 	
-	// Triplanar blend weights
-	vec3 tri_blend = abs(N);
-	tri_blend = max(tri_blend - 0.2, 0.0);
-	tri_blend /= (tri_blend.x + tri_blend.y + tri_blend.z);
-	
-	// Micro detail normal from procedural high-frequency noise
-	vec3 micro_p = v_world_pos * 0.15;
+	// Micro detail normal from procedural noise, faded with distance (it aliases into sparkle far away)
+	vec3 micro_p = (patch_noise_origin + v_local_pos) * 0.15;
 	float micro_noise_val = get_noise_3d(micro_p);
-	vec3 detail_norm = vec3(
+	vec3 detail_norm_local = vec3(
 		get_noise_3d(micro_p + vec3(0.05, 0.0, 0.0)) - micro_noise_val,
 		get_noise_3d(micro_p + vec3(0.0, 0.05, 0.0)) - micro_noise_val,
 		get_noise_3d(micro_p + vec3(0.0, 0.0, 0.05)) - micro_noise_val
 	) * 20.0;
-	vec3 final_normal = normalize(N + detail_norm * detail_normal_strength * 0.2);
+	vec3 detail_norm = (MODEL_MATRIX * vec4(detail_norm_local, 0.0)).xyz;
+	float detail_fade = 1.0 - smoothstep(60.0, 450.0, length(VERTEX));
+	vec3 final_normal = normalize(N + detail_norm * detail_normal_strength * 0.2 * detail_fade);
 	
 	vec3 final_albedo = vec3(0.5);
 	float final_roughness = 0.8;
@@ -268,7 +316,7 @@ void fragment() {
 		
 		// Optional Texture2DArray blend
 		if (use_texture_array) {
-			vec2 uv_scaled = v_world_pos.xz / triplanar_scale;
+			vec2 uv_scaled = (patch_noise_origin.xz + v_local_pos.xz) / triplanar_scale;
 			vec4 tex_sand = texture(albedo_array, vec3(uv_scaled, layer_indices.x));
 			vec4 tex_grass = texture(albedo_array, vec3(uv_scaled, layer_indices.y));
 			vec4 tex_rock = texture(albedo_array, vec3(uv_scaled, layer_indices.z));
@@ -288,5 +336,5 @@ void fragment() {
 	ALBEDO = final_albedo;
 	ROUGHNESS = final_roughness;
 	METALLIC = final_metallic;
-	NORMAL = final_normal;
+	NORMAL = normalize((VIEW_MATRIX * vec4(final_normal, 0.0)).xyz);
 }

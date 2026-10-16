@@ -47,7 +47,18 @@ var _frame_candidate_ticks: int = 0
 var _waiting_for_collision: bool = false
 var _wait_ticks: int = 0
 
+## Procedural spacecraft audio lives under the world (so it is created and freed with it) and is found by
+## other scripts through the "audio_manager" group. (A class_name script cannot also be an autoload of the same name.)
+func _ensure_audio_manager() -> void:
+	if get_tree().get_first_node_in_group("audio_manager") != null:
+		return
+	var am := AudioManager.new()
+	am.name = "AudioManager"
+	am.add_to_group("audio_manager")
+	add_child(am)
+
 func _ready() -> void:
+	_ensure_audio_manager()
 	_init_materials()
 	
 	var scale_cfg = GameScale.get_instance()
@@ -121,11 +132,11 @@ func _slope_ok_score(dir: Vector3, radius: float) -> float:
 	east = east.normalized()
 	var north: Vector3 = dir.cross(east).normalized()
 	var ang: float = 40.0 / radius
-	var h0: float = TerrainNoise.sample_height(dir.x, dir.y, dir.z, "Earth") * 8848.0
+	var h0: float = TerrainNoise.sample_height(dir.x, dir.y, dir.z, "Earth") * float(BodyFrames.MAX_HEIGHT_M[&"Earth"])
 	var worst: float = 0.0
 	for t in [east, -east, north, -north]:
 		var d2: Vector3 = (dir * cos(ang) + t * sin(ang)).normalized()
-		var h: float = TerrainNoise.sample_height(d2.x, d2.y, d2.z, "Earth") * 8848.0
+		var h: float = TerrainNoise.sample_height(d2.x, d2.y, d2.z, "Earth") * float(BodyFrames.MAX_HEIGHT_M[&"Earth"])
 		worst = maxf(worst, absf(h - h0))
 	return worst
 
@@ -144,7 +155,7 @@ func _find_spawn_dir(earth_r: float) -> Vector3:
 			var tangent: Vector3 = north * cos(b) + east * sin(b)
 			var a: float = arc_m / earth_r
 			var cand: Vector3 = (base * cos(a) + tangent * sin(a)).normalized()
-			var h_c: float = TerrainNoise.sample_height(cand.x, cand.y, cand.z, "Earth") * 8848.0
+			var h_c: float = TerrainNoise.sample_height(cand.x, cand.y, cand.z, "Earth") * float(BodyFrames.MAX_HEIGHT_M[&"Earth"])
 			# flat first, lowlands strongly preferred (a spaceport is not on a mountain top), close to the target
 			var score: float = _slope_ok_score(cand, earth_r) + h_c * 0.012 + arc_m * 0.0004
 			if score < best_score:
@@ -184,7 +195,7 @@ func _place_ship_on_surface(origin_svc: Node, earth_r: float, earth_pos: DVec3, 
 
 func _orient_and_place_ship(origin_svc: Node, earth_r: float, earth_pos: DVec3) -> void:
 	var up_w: Vector3 = (BodyFrames.get_basis(&"Earth") * _spawn_dir_local).normalized()
-	var h: float = TerrainNoise.sample_height(_spawn_dir_local.x, _spawn_dir_local.y, _spawn_dir_local.z, "Earth") * 8848.0
+	var h: float = TerrainNoise.sample_height(_spawn_dir_local.x, _spawn_dir_local.y, _spawn_dir_local.z, "Earth") * float(BodyFrames.MAX_HEIGHT_M[&"Earth"])
 	var r_here: float = earth_r + h + spawn_clearance_m
 	origin_svc.origin.offset = earth_pos.add(DVec3.new(up_w.x * r_here, up_w.y * r_here, up_w.z * r_here))
 	ship.global_position = Vector3.ZERO
@@ -296,6 +307,7 @@ func _process(delta: float) -> void:
 	var earth_pos = GravityService.body_position("Earth", sim_time)
 	_update_celestial_positions(sim_time)
 	_update_sun_and_shaders(sim_time, earth_pos)
+	_update_atmosphere_sky()
 	
 	current_cloud_rot = fmod(current_cloud_rot + cloud_drift_speed * delta, TAU)
 	if mat_clouds:
@@ -319,6 +331,28 @@ func _update_celestial_positions(sim_time: float) -> void:
 	if moon_globe:
 		var moon_local = origin_svc.universe_to_local(UniversePosition.new(Vector3i.ZERO, moon_pos))
 		moon_globe.global_position = moon_local
+
+## Sky + fog from inside Earth's atmosphere, and hide the outside-view shells (atmosphere glow, cloud
+## sphere) while we are in it: seen from inside they draw a green band / wedges instead of sky.
+@export var shell_hide_altitude_m: float = 15000.0
+@export var atmosphere_scale_height_m: float = 6000.0
+
+func _update_atmosphere_sky() -> void:
+	if not sky_env or not ship or not earth_globe or not earth_planet_runtime:
+		return
+	var to_planet: Vector3 = earth_globe.global_position - ship.global_position
+	var dist: float = to_planet.length()
+	if dist < 1.0:
+		return
+	var alt: float = dist - earth_planet_runtime.planet_radius_m
+	var up: Vector3 = -to_planet / dist
+	var density: float = exp(-maxf(alt, 0.0) / atmosphere_scale_height_m) if alt < 120000.0 else 0.0
+	sky_env.set_atmosphere(up, density)
+	var inside: bool = alt < shell_hide_altitude_m
+	for shell in ["Atmosphere", "Clouds"]:
+		var n = earth_globe.get_node_or_null(shell)
+		if n is Node3D:
+			(n as Node3D).visible = not inside
 
 func _update_sun_and_shaders(sim_time: float, earth_pos: DVec3) -> void:
 	var sun_pos = GravityService.body_position("Sun", sim_time)

@@ -270,6 +270,12 @@ func _update_instances(visible_nodes: Array) -> void:
 			node.instance = _get_patch_instance()
 			_setup_instance(node)
 		node.instance.global_transform = _patch_world_transform(node)
+		# The shared grid mesh is a flat unit square at the origin; the VERTEX shader then throws the vertices
+		# hundreds of metres to kilometres away. Without bounds that match the displaced geometry Godot culls a
+		# patch whenever its tiny box (at the patch centre, ~sea level, often directly below the camera) is outside
+		# the view: the ground under and beside you vanished along straight frustum-plane edges.
+		var ext: float = node.bounds_radius * 1.6 + max_height_m + 300.0
+		node.instance.custom_aabb = AABB(Vector3(-ext, -ext, -ext), Vector3(ext, ext, ext) * 2.0)
 		current_instances.append(node.instance)
 		
 	for inst in active_patches:
@@ -405,6 +411,8 @@ func _setup_instance(node: PatchNode) -> void:
 	mat.set_shader_parameter("planet_radius", planet_radius_m)
 	mat.set_shader_parameter("max_height", max_height_m)
 	mat.set_shader_parameter("patch_center_local", node.center_dir * planet_radius_m)
+	var c: DVec3 = node.center_double
+	mat.set_shader_parameter("patch_noise_origin", Vector3(fposmod(c.x, 8192.0), fposmod(c.y, 8192.0), fposmod(c.z, 8192.0)))
 	mat.set_shader_parameter("patch_resolution", float(patch_resolution))
 	
 	# Geomorphing calculation: blend odd vertices to coarse level near split threshold

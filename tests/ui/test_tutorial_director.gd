@@ -15,7 +15,7 @@ func test_tutorial_initial_steps() -> void:
 	
 	assert_eq(td.steps.size(), 6, "Tutorial defines 6 mission steps from Adelaide to Moon and return")
 	assert_eq(td.steps[0]["id"], "adelaide_launch", "Step 0 is Adelaide Launch")
-	assert_eq(td.steps[1]["id"], "achieve_orbit", "Step 1 is Achieve Orbit")
+	assert_eq(td.steps[1]["id"], "engage_pulse", "Step 1 is the pulse drive")
 	assert_eq(td.steps[2]["id"], "moon_landing", "Step 2 is Moon Landing")
 	assert_eq(td.steps[3]["id"], "eva_exit", "Step 3 is EVA Exit")
 	assert_eq(td.steps[4]["id"], "scan_sample", "Step 4 is Scan Sample")

@@ -28,26 +28,42 @@ func _ready() -> void:
 	if auto_start:
 		start_tutorial()
 
+## "[Up]" / "[Shift]" ... the first keyboard binding of an action (falls back to the action name).
+static func key_label(action: StringName) -> String:
+	if InputMap.has_action(action):
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventKey:
+				var k: InputEventKey = ev
+				var code: Key = k.physical_keycode if k.physical_keycode != KEY_NONE else k.keycode
+				return "[%s]" % OS.get_keycode_string(code)
+	return "[%s]" % String(action)
+
 func _init_steps() -> void:
+	var k_thr: String = key_label(&"throttle_up")
+	var k_pitch: String = key_label(&"pitch_up")
+	var k_boost: String = key_label(&"boost")
+	var k_pulse: String = key_label(&"pulse_drive")
+	var k_gear: String = key_label(&"toggle_gear")
+	var k_map: String = key_label(&"toggle_map")
 	steps = [
 		{
 			"id": "adelaide_launch",
-			"title": "MISSION STEP 1: ADELAIDE LAUNCH",
-			"instruction": "Engage main thrusters (Throttle Up [Shift]) and pitch up towards the east to ascend from Adelaide Base.",
-			"hint": "Maintain pitch between 45° and 75° to clear the dense lower atmosphere.",
+			"title": "MISSION STEP 1: LIFT OFF",
+			"instruction": "Hold Throttle %s to lift off, pitch up %s and climb out of the atmosphere. Hold Boost %s to climb faster." % [k_thr, k_pitch, k_boost],
+			"hint": "Reach 15 km altitude. The sky darkens as you leave the atmosphere.",
 			"check": _check_launch
 		},
 		{
-			"id": "achieve_orbit",
-			"title": "MISSION STEP 2: ORBITAL INSERTION",
-			"instruction": "Accelerate prograde at apoapsis to circularize Low Earth Orbit (Apoapsis and Periapsis > 80 km).",
-			"hint": "Check the Orbital Projection Map [M] to monitor your orbital trajectory.",
-			"check": _check_orbit
+			"id": "engage_pulse",
+			"title": "MISSION STEP 2: PULSE DRIVE",
+			"instruction": "Point the nose at the Moon and engage the Pulse Drive %s (needs 60 km clear of any planet). Open the map %s to find it." % [k_pulse, k_map],
+			"hint": "The pulse drive brakes by itself when you approach a planet.",
+			"check": _check_pulse
 		},
 		{
 			"id": "moon_landing",
 			"title": "MISSION STEP 3: LUNAR TOUCHDOWN",
-			"instruction": "Navigate to the Moon, align retrograde for descent, deploy landing gear [G], and touch down gently.",
+			"instruction": "The pulse drive drops you out above the Moon. Descend, deploy landing gear %s and touch down gently." % k_gear,
 			"hint": "Keep descent speed below 5 m/s upon lunar contact.",
 			"check": _check_moon_landing
 		},
@@ -198,33 +214,30 @@ func _on_entered_ship(_ship_node: Node) -> void:
 # --- Step Verification Checks ---
 
 func _check_launch() -> bool:
-	if not ship:
+	if not ship or not ("telemetry_data" in ship):
 		return false
-	if "telemetry_data" in ship:
-		var alt = ship.telemetry_data.get("altitude_agl_m", 0.0)
-		var spd = ship.telemetry_data.get("speed_ms", 0.0)
-		return alt > 25000.0 or spd > 1200.0
-	return false
+	return float(ship.telemetry_data.get("altitude_agl_m", 0.0)) > 15000.0
 
-func _check_orbit() -> bool:
+func _check_pulse() -> bool:
 	if not ship:
 		return false
-	if "telemetry_data" in ship:
-		var pe = ship.telemetry_data.get("pe_km", 0.0)
-		var spd = ship.telemetry_data.get("speed_ms", 0.0)
-		return (pe > 75.0) or (spd > 7200.0)
-	return false
-
-func _check_moon_landing() -> bool:
-	if not ship:
-		return false
-	if "telemetry_data" in ship:
-		var is_landed = ship.telemetry_data.get("is_landed", false)
-		if is_landed:
-			return true
-	if "is_landed" in ship and ship.is_landed:
+	if "pulse_drive_active" in ship and ship.pulse_drive_active:
 		return true
-	return false
+	return "telemetry_data" in ship and float(ship.telemetry_data.get("speed_ms", 0.0)) > 7200.0
+
+## Landed ON THE MOON (landing on Earth must not complete the lunar step).
+func _check_moon_landing() -> bool:
+	if not ship or not ("is_landed" in ship) or not ship.is_landed:
+		return false
+	return _dominant_body_name() == "Moon"
+
+func _dominant_body_name() -> String:
+	var origin = get_node_or_null("/root/OriginService")
+	var clock = get_node_or_null("/root/SimulationClock")
+	if not origin or not clock or not ship:
+		return ""
+	var su: DVec3 = origin.local_to_universe(ship.global_position).offset
+	return String(GravityService.dominant_body(su, clock.sim_time_s))
 
 func _check_eva_exit() -> bool:
 	if player_rig and "current_mode" in player_rig:

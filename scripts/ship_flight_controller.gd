@@ -614,14 +614,14 @@ func engage_pulse_drive() -> bool:
 	
 	var nearest_d: float = _nearest_body_surface_distance(ship_pos, sim_time) if flight_model == FlightModelMode.ARCADE else alt_asl
 	if not FlightModel.can_engage_pulse_drive(alt_asl, nearest_d):
-		var audio_mgr = get_node_or_null("/root/AudioManager")
+		var audio_mgr = get_tree().get_first_node_in_group("audio_manager")
 		if audio_mgr and audio_mgr.has_method("play_alert"):
 			audio_mgr.play_alert("terrain_warning")
 		return false
 		
 	pulse_drive_active = true
 	_pulse_target_speed = maxf(linear_velocity.length(), 0.0)
-	var audio_mgr2 = get_node_or_null("/root/AudioManager")
+	var audio_mgr2 = get_tree().get_first_node_in_group("audio_manager")
 	if audio_mgr2 and audio_mgr2.has_method("play_alert"):
 		audio_mgr2.play_alert("pulse_engage")
 	return true
@@ -630,6 +630,6 @@ func disengage_pulse_drive(reason: String = "") -> void:
 	if OS.has_environment("SH_DEBUG"): print("[pulse] disengage: ", reason, " speed=", linear_velocity.length(), " target=", _pulse_target_speed)
 	if pulse_drive_active:
 		pulse_drive_active = false
-		var audio_mgr = get_node_or_null("/root/AudioManager")
+		var audio_mgr = get_tree().get_first_node_in_group("audio_manager")
 		if audio_mgr and audio_mgr.has_method("play_alert"):
 			audio_mgr.play_alert("overspeed")

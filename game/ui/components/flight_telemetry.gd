@@ -62,11 +62,16 @@ func update_telemetry(data: Dictionary) -> void:
 	if label_alt_asl:
 		label_alt_asl.text = "%7.2f km" % (asl / 1000.0)
 		
+	# Apoapsis / periapsis are meaningless while hovering low in the atmosphere (arcade flight): show dashes.
+	var orbital: bool = asl > 80000.0 and data.get("eccentricity", 0.0) < 1.0 and pe > -1000.0 and ap > 0.0
 	if label_ap:
-		label_ap.text = "%7.1f km" % ap
+		label_ap.text = ("%7.1f km" % ap) if orbital else "      --"
+		label_ap.modulate = Color.WHITE if orbital else Color(0.6, 0.6, 0.6)
 	if label_pe:
-		label_pe.text = "%7.1f km" % pe
-		if pe < 85.0:
+		label_pe.text = ("%7.1f km" % pe) if orbital else "      --"
+		if not orbital:
+			label_pe.modulate = Color(0.6, 0.6, 0.6)
+		elif pe < 85.0:
 			label_pe.modulate = Color(1.0, 0.4, 0.4)
 		else:
 			label_pe.modulate = Color.WHITE

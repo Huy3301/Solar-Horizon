@@ -7,7 +7,9 @@ class_name BodyFrames extends RefCounted
 ## surface frame is inertial and a parked ship stays parked.
 
 static var _bases: Dictionary = {}
-const MAX_HEIGHT_M: Dictionary = {&"Earth": 8848.0, &"Moon": 10700.0}
+## Tallest relief per body. 3.5 km on a 637 km planet is still ~2.5x real Earth's proportion (8.8 km on 6371 km);
+## the old 8848 m made every region a wall of mountains (5-8 km within 200 km of the spawn).
+const MAX_HEIGHT_M: Dictionary = {&"Earth": 3500.0, &"Moon": 10700.0}
 
 static func set_basis(id: StringName, basis: Basis) -> void:
 	_bases[id] = basis.orthonormalized()

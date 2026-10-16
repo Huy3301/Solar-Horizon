@@ -71,6 +71,11 @@ func _process(_delta: float) -> void:
 		quadtree.camera_world_pos = target_world
 		quadtree.planet_basis = global_transform.basis.orthonormalized()
 		
+		# The ocean is a whole-planet sphere meant for viewing from afar. Close to the ground the terrain
+		# patches own the picture; leaving the sphere on draws blue wedges over the ground (seen in renders).
+		if ocean_renderer and is_instance_valid(ocean_renderer):
+			ocean_renderer.visible = alt_asl >= transition_altitude_max
+
 		# Far-LOD cross-fade logic:
 		if far_lod_surface and is_instance_valid(far_lod_surface):
 			if alt_asl >= transition_altitude_max:

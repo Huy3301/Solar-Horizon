@@ -48,6 +48,50 @@ func test_insufficient_ingredients_fails() -> void:
 	inv.free()
 	crafter.free()
 
+func test_output_capacity_failure_preserves_inventory() -> void:
+	var input_def := ItemDef.new()
+	input_def.id = &"craft_transaction_input"
+	input_def.mass = 1.0
+	input_def.stack_max = 10
+	InventorySystem.register_item_def(input_def)
+	var output_def := ItemDef.new()
+	output_def.id = &"craft_transaction_output"
+	output_def.mass = 10.0
+	output_def.stack_max = 10
+	InventorySystem.register_item_def(output_def)
+	var ballast_def := ItemDef.new()
+	ballast_def.id = &"craft_transaction_ballast"
+	ballast_def.mass = 9.0
+	ballast_def.stack_max = 10
+	InventorySystem.register_item_def(ballast_def)
+
+	var recipe := RecipeDef.new()
+	recipe.id = &"craft_transaction_capacity_test"
+	recipe.ingredients = {"craft_transaction_input": 1}
+	recipe.products = {"craft_transaction_output": 1}
+	var inv := InventorySystem.new()
+	inv.max_mass = 10.0
+	assert_eq(inv.add_item("craft_transaction_input", 1), 0, "Input should fit")
+	assert_eq(inv.add_item("craft_transaction_ballast", 1), 0, "Ballast should fill remaining capacity")
+	var inventory_reference: Dictionary = inv.inventory
+
+	var changes: Array[String] = []
+	inv.inventory_changed.connect(func(item_id: String, _amount: int) -> void: changes.append(item_id))
+	var crafter = crafting_script.new()
+	assert_false(crafter.can_craft(recipe, inv), "Crafting must be rejected if the output exceeds capacity")
+	assert_false(crafter.craft(recipe, inv), "Failed capacity check must not craft")
+	assert_eq(inv.get_amount("craft_transaction_input"), 1, "Failed craft must preserve ingredients")
+	assert_eq(inv.get_amount("craft_transaction_ballast"), 1, "Failed craft must preserve other items")
+	assert_eq(inv.get_amount("craft_transaction_output"), 0, "Failed craft must not add output")
+	assert_true(changes.is_empty(), "Failed transaction must not emit inventory changes")
+
+	inv.max_mass = 20.0
+	assert_true(crafter.craft(recipe, inv), "Transaction succeeds after capacity is available")
+	assert_eq(inventory_reference.get("craft_transaction_output"), 1, "Successful transaction preserves inventory dictionary identity")
+
+	crafter.free()
+	inv.free()
+
 func test_upgrade_suit_o2_three_tiers() -> void:
 	var crafter = crafting_script.new()
 	crafter.load_all_recipes()

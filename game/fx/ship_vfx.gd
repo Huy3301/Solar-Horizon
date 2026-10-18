@@ -7,6 +7,7 @@ extends Node3D
 
 const RCS_PUFF_SHADER = preload("res://shaders/fx/rcs_puff.gdshader")
 const REENTRY_PLASMA_SHADER = preload("res://shaders/fx/reentry_plasma.gdshader")
+const PULSE_DRIVE_SHADER = preload("res://shaders/fx/pulse_drive_overlay.gdshader")
 
 @export var ship_node: RigidBody3D = null
 @export var expansion_factor: float = 1.0
@@ -28,6 +29,16 @@ var rcs_nodes: Dictionary = {}         ## socket_name -> MeshInstance3D
 var rcs_active_timers: Dictionary = {}  ## socket_name -> float remaining time
 var rcs_intensities: Dictionary = {}    ## socket_name -> float intensity
 
+enum PulseVisualStage { IDLE, CHARGING, TRAVEL, ARRIVAL }
+var pulse_visual_stage: PulseVisualStage = PulseVisualStage.IDLE
+var pulse_stage_progress: float = 0.0
+var pulse_travel_intensity: float = 0.0
+var pulse_velocity_mix: float = 0.0
+var _pulse_elapsed: float = 0.0
+var _pulse_overlay: ColorRect
+var _pulse_overlay_material: ShaderMaterial
+var _last_telemetry_pulse_active: bool = false
+
 var _initialized: bool = false
 
 const RCS_SOCKET_NAMES: Array[String] = [
@@ -39,6 +50,8 @@ const RCS_SOCKET_NAMES: Array[String] = [
 	"SOCKET_rcs_tail_stbd",
 	"SOCKET_rcs_tail_up"
 ]
+const PULSE_CHARGE_DURATION: float = 0.9
+const PULSE_ARRIVAL_DURATION: float = 0.85
 
 func _ready() -> void:
 	ensure_initialized()
@@ -60,6 +73,7 @@ func ensure_initialized() -> void:
 	_setup_plumes()
 	_setup_rcs_sockets()
 	_setup_reentry_sheath()
+	_setup_pulse_overlay()
 	_update_plume_shaders()
 
 func _setup_plumes() -> void:
@@ -188,6 +202,18 @@ func _on_flight_data_updated(telemetry: Dictionary) -> void:
 	var mach: float = telemetry.get("mach", 0.0)
 	var air_density: float = telemetry.get("air_density", 0.0)
 	var throttle_pct: float = telemetry.get("throttle_pct", 0.0)
+	var pulse_active: bool = telemetry.get("pulse_drive_active", false)
+	if pulse_active != _last_telemetry_pulse_active:
+		if pulse_active:
+			begin_pulse_drive()
+		else:
+			end_pulse_drive()
+		_last_telemetry_pulse_active = pulse_active
+	pulse_velocity_mix = clampf(
+		float(telemetry.get("speed_ms", 0.0)) / maxf(float(telemetry.get("speed_limit_ms", 1.0)), 1.0),
+		0.0,
+		1.0
+	)
 	
 	set_reentry_parameters(q, mach)
 	set_atmosphere_density(air_density / 1.225)
@@ -225,6 +251,89 @@ func _process(delta: float) -> void:
 	_update_reentry_heat(delta)
 	_update_rcs_puffs(delta)
 	_update_plume_shaders()
+	_update_pulse_drive_visual(delta)
+
+func begin_pulse_drive() -> void:
+	ensure_initialized()
+	if pulse_visual_stage == PulseVisualStage.CHARGING or pulse_visual_stage == PulseVisualStage.TRAVEL:
+		return
+	pulse_visual_stage = PulseVisualStage.CHARGING
+	pulse_stage_progress = 0.0
+	_pulse_elapsed = 0.0
+	if _pulse_overlay:
+		_pulse_overlay.visible = true
+	_sync_pulse_overlay()
+
+func end_pulse_drive() -> void:
+	ensure_initialized()
+	if pulse_visual_stage == PulseVisualStage.IDLE or pulse_visual_stage == PulseVisualStage.ARRIVAL:
+		return
+	pulse_visual_stage = PulseVisualStage.ARRIVAL
+	pulse_stage_progress = 0.0
+	_pulse_elapsed = 0.0
+	if _pulse_overlay:
+		_pulse_overlay.visible = true
+	_sync_pulse_overlay()
+
+func _setup_pulse_overlay() -> void:
+	var canvas_layer := get_node_or_null("PulseDriveLayer") as CanvasLayer
+	if canvas_layer == null:
+		canvas_layer = CanvasLayer.new()
+		canvas_layer.name = "PulseDriveLayer"
+		canvas_layer.layer = 1
+		add_child(canvas_layer)
+
+	_pulse_overlay = canvas_layer.get_node_or_null("PulseDriveOverlay") as ColorRect
+	if _pulse_overlay == null:
+		_pulse_overlay = ColorRect.new()
+		_pulse_overlay.name = "PulseDriveOverlay"
+		_pulse_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_pulse_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		canvas_layer.add_child(_pulse_overlay)
+	_pulse_overlay.visible = false
+	_pulse_overlay_material = ShaderMaterial.new()
+	_pulse_overlay_material.shader = PULSE_DRIVE_SHADER
+	_pulse_overlay.material = _pulse_overlay_material
+
+func _update_pulse_drive_visual(delta: float) -> void:
+	match pulse_visual_stage:
+		PulseVisualStage.CHARGING:
+			_pulse_elapsed += delta
+			pulse_stage_progress = clampf(_pulse_elapsed / PULSE_CHARGE_DURATION, 0.0, 1.0)
+			if pulse_stage_progress >= 1.0:
+				pulse_visual_stage = PulseVisualStage.TRAVEL
+				pulse_stage_progress = 0.0
+				_pulse_elapsed = 0.0
+		PulseVisualStage.TRAVEL:
+			_pulse_elapsed += delta
+			pulse_travel_intensity = move_toward(pulse_travel_intensity, 1.0, delta * 1.5)
+		PulseVisualStage.ARRIVAL:
+			_pulse_elapsed += delta
+			pulse_stage_progress = clampf(_pulse_elapsed / PULSE_ARRIVAL_DURATION, 0.0, 1.0)
+			pulse_travel_intensity = move_toward(pulse_travel_intensity, 0.0, delta * 2.4)
+			if pulse_stage_progress >= 1.0:
+				pulse_visual_stage = PulseVisualStage.IDLE
+				pulse_stage_progress = 0.0
+				_pulse_elapsed = 0.0
+				pulse_travel_intensity = 0.0
+
+	_sync_pulse_overlay()
+
+func _sync_pulse_overlay() -> void:
+	if _pulse_overlay == null or _pulse_overlay_material == null:
+		return
+	_pulse_overlay.visible = pulse_visual_stage != PulseVisualStage.IDLE
+	var charge_mix: float = 0.0
+	var arrival_mix: float = 0.0
+	if pulse_visual_stage == PulseVisualStage.CHARGING:
+		charge_mix = sin(pulse_stage_progress * PI * 0.5)
+	elif pulse_visual_stage == PulseVisualStage.ARRIVAL:
+		arrival_mix = 1.0 - pulse_stage_progress
+	_pulse_overlay_material.set_shader_parameter("charge_mix", charge_mix)
+	_pulse_overlay_material.set_shader_parameter("travel_mix", pulse_travel_intensity)
+	_pulse_overlay_material.set_shader_parameter("arrival_mix", arrival_mix)
+	_pulse_overlay_material.set_shader_parameter("velocity_mix", pulse_velocity_mix)
+	_pulse_overlay_material.set_shader_parameter("elapsed", _pulse_elapsed)
 
 func _update_flight_control_inputs() -> void:
 	if ship_node == null:

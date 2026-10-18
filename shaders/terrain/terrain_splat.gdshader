@@ -41,6 +41,8 @@ uniform float triplanar_scale = 12.0;
 uniform float detail_normal_strength : hint_range(0.0, 2.0) = 0.65;
 uniform float ao_strength : hint_range(0.0, 1.0) = 0.85;
 uniform vec3 sun_direction = vec3(0.707, 0.35, 0.612);
+// 0 = lit terrain, 1 = world normals, 2 = normalized height, 3 = patch ID, 4 = slope/grid.
+uniform int debug_view_mode : hint_range(0, 4) = 0;
 
 // --- Noise Functions ---
 vec3 hash33(vec3 p) {
@@ -337,4 +339,30 @@ void fragment() {
 	ROUGHNESS = final_roughness;
 	METALLIC = final_metallic;
 	NORMAL = normalize((VIEW_MATRIX * vec4(final_normal, 0.0)).xyz);
+
+	if (debug_view_mode > 0) {
+		vec3 debug_color = vec3(0.0);
+		if (debug_view_mode == 1) {
+			debug_color = N * 0.5 + 0.5;
+		} else if (debug_view_mode == 2) {
+			float normalized_height = clamp(v_height, 0.0, 1.0);
+			debug_color = vec3(normalized_height);
+		} else if (debug_view_mode == 3) {
+			vec2 patch_index = floor(patch_offset / max(patch_scale, 0.0001));
+			float patch_lod = log2(max(1.0, 1.0 / max(patch_scale, 0.0001)));
+			debug_color = hash33(vec3(patch_index, float(face_index) + patch_lod * 13.0));
+		} else if (debug_view_mode == 4) {
+			vec2 grid_coord = UV * (patch_resolution - 1.0);
+			vec2 grid_frac = fract(grid_coord);
+			vec2 grid_dist = min(grid_frac, vec2(1.0) - grid_frac);
+			float grid_line = 1.0 - smoothstep(0.015, 0.04, min(grid_dist.x, grid_dist.y));
+			float slope = clamp(1.0 - up_dot, 0.0, 1.0);
+			debug_color = mix(vec3(slope, 1.0 - slope, 0.25), vec3(1.0, 0.9, 0.1), grid_line);
+		}
+		// Emission keeps diagnostics readable regardless of scene lighting.
+		ALBEDO = vec3(0.0);
+		EMISSION = debug_color;
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
+	}
 }

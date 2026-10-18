@@ -29,6 +29,40 @@ func test_on_foot_lunar_gravity() -> void:
 	
 	rig.free()
 
+func test_on_foot_tilted_gravity_orients_floor_and_movement() -> void:
+	var rig = OnFootRigScript.new()
+	tree.root.add_child(rig)
+	rig._setup_nodes()
+	rig._setup_camera()
+	var tilted_gravity = Vector3(1.0, -2.0, 3.0).normalized() * 9.8
+	var expected_up = -tilted_gravity.normalized()
+
+	rig._apply_gravity_orientation(expected_up)
+
+	assert_true(rig.up_direction.is_equal_approx(expected_up), "Floor up direction opposes tilted gravity")
+	assert_true(rig.global_transform.basis.y.is_equal_approx(expected_up), "Character local up aligns with tilted gravity")
+	assert_almost_eq(rig.global_transform.basis.x.dot(expected_up), 0.0, 0.001, "Character right axis lies in the movement plane")
+	assert_almost_eq(rig.global_transform.basis.z.dot(expected_up), 0.0, 0.001, "Character forward axis lies in the movement plane")
+	var movement = rig._get_movement_direction(Vector2(0.0, -1.0))
+	assert_almost_eq(movement.dot(expected_up), 0.0, 0.001, "Forward movement is tangent to the tilted surface")
+	assert_true((rig.camera_pivot.global_position - rig.global_position).normalized().is_equal_approx(expected_up), "Camera height follows character up")
+
+	rig.free()
+
+func test_on_foot_earth_gravity_keeps_existing_orientation() -> void:
+	var rig = OnFootRigScript.new()
+	tree.root.add_child(rig)
+	rig.rotate_y(0.7)
+	var original_basis = rig.global_transform.basis
+
+	rig._apply_gravity_orientation(Vector3.UP)
+
+	assert_true(rig.up_direction.is_equal_approx(Vector3.UP), "Earth-like gravity uses world up")
+	assert_true(rig.global_transform.basis.is_equal_approx(original_basis), "Earth-like gravity leaves facing unchanged")
+	assert_true(rig._get_movement_direction(Vector2(0.0, -1.0)).is_equal_approx(original_basis * Vector3.FORWARD), "Earth-like movement retains the existing forward direction")
+
+	rig.free()
+
 func test_on_foot_jetpack_fuel_drain_and_recharge() -> void:
 	var rig = OnFootRigScript.new()
 	rig._setup_nodes()

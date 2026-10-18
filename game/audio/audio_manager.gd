@@ -10,6 +10,8 @@ var engine_player: AudioStreamPlayer
 var rcs_player: AudioStreamPlayer
 var reentry_player: AudioStreamPlayer
 var ui_player: AudioStreamPlayer
+var pulse_drive_player: AudioStreamPlayer
+var pulse_transition_player: AudioStreamPlayer
 
 # Procedural audio stream buffers
 var engine_stream: AudioStreamWAV
@@ -18,10 +20,14 @@ var reentry_stream: AudioStreamWAV
 var click_stream: AudioStreamWAV
 var alert_stream: AudioStreamWAV
 var touchdown_stream: AudioStreamWAV
+var pulse_drive_stream: AudioStreamWAV
+var pulse_engage_stream: AudioStreamWAV
+var pulse_arrival_stream: AudioStreamWAV
 
 # State tracking
 var current_throttle: float = 0.0
 var current_reentry_q: float = 0.0
+var current_pulse_drive_intensity: float = 0.0
 var last_alert_type: String = ""
 
 func _init() -> void:
@@ -29,11 +35,26 @@ func _init() -> void:
 	_setup_audio_players()
 
 func _enter_tree() -> void:
+	engine_player.stream = engine_stream
+	rcs_player.stream = rcs_stream
+	reentry_player.stream = reentry_stream
+	ui_player.stream = click_stream
+	pulse_drive_player.stream = pulse_drive_stream
+	pulse_transition_player.stream = pulse_engage_stream
 	# Resume continuous channel playback if state was set before entering tree
 	if current_throttle > 0.001:
 		_safe_play(engine_player)
 	if current_reentry_q > 0.001:
 		_safe_play(reentry_player)
+	if current_pulse_drive_intensity > 0.001:
+		_safe_play(pulse_drive_player)
+
+func _exit_tree() -> void:
+	for player in [engine_player, rcs_player, reentry_player, ui_player, pulse_drive_player, pulse_transition_player]:
+		if is_instance_valid(player):
+			if player.playing:
+				player.stop()
+			player.stream = null
 
 ## Set engine throttle (0.0 to 1.0) and dynamically modulate pitch and volume.
 func set_engine_throttle(throttle: float) -> void:
@@ -73,6 +94,33 @@ func set_reentry_pressure(q: float) -> void:
 		reentry_player.pitch_scale = lerpf(0.7, 1.3, norm_q)
 		if not reentry_player.playing:
 			_safe_play(reentry_player)
+
+## Fade the low, harmonic pulse-drive field bed in and out with the ship's drive state.
+func set_pulse_drive_intensity(intensity: float) -> void:
+	current_pulse_drive_intensity = clampf(intensity, 0.0, 1.0)
+	if pulse_drive_player == null:
+		return
+	if current_pulse_drive_intensity <= 0.001:
+		pulse_drive_player.volume_db = -80.0
+		pulse_drive_player.pitch_scale = 0.8
+		if pulse_drive_player.playing:
+			pulse_drive_player.stop()
+	else:
+		pulse_drive_player.volume_db = lerpf(-34.0, -16.0, sqrt(current_pulse_drive_intensity))
+		pulse_drive_player.pitch_scale = lerpf(0.82, 1.12, current_pulse_drive_intensity)
+		if not pulse_drive_player.playing:
+			_safe_play(pulse_drive_player)
+
+## Play a brief rising charge or descending arrival tone over the continuous drive bed.
+func play_pulse_transition(engaging: bool) -> void:
+	if pulse_transition_player == null:
+		return
+	pulse_transition_player.stream = pulse_engage_stream if engaging else pulse_arrival_stream
+	pulse_transition_player.volume_db = -5.0
+	pulse_transition_player.pitch_scale = 1.0
+	if pulse_transition_player.playing:
+		pulse_transition_player.stop()
+	_safe_play(pulse_transition_player)
 
 ## Play subtle UI click blip (~880 Hz sine burst).
 func play_ui_click() -> void:
@@ -151,6 +199,20 @@ func _setup_audio_players() -> void:
 	ui_player.bus = "Master"
 	add_child(ui_player)
 
+	pulse_drive_player = AudioStreamPlayer.new()
+	pulse_drive_player.name = "PulseDrivePlayer"
+	pulse_drive_player.stream = pulse_drive_stream
+	pulse_drive_player.volume_db = -80.0
+	pulse_drive_player.bus = "Master"
+	add_child(pulse_drive_player)
+
+	pulse_transition_player = AudioStreamPlayer.new()
+	pulse_transition_player.name = "PulseTransitionPlayer"
+	pulse_transition_player.stream = pulse_engage_stream
+	pulse_transition_player.volume_db = -80.0
+	pulse_transition_player.bus = "Master"
+	add_child(pulse_transition_player)
+
 ## Synthesize procedural waveforms for all sounds.
 func _generate_audio_streams() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -162,6 +224,9 @@ func _generate_audio_streams() -> void:
 	click_stream = _generate_click_stream()
 	alert_stream = _generate_alert_stream()
 	touchdown_stream = _generate_touchdown_stream()
+	pulse_drive_stream = _generate_pulse_drive_stream()
+	pulse_engage_stream = _generate_pulse_transition_stream(true)
+	pulse_arrival_stream = _generate_pulse_transition_stream(false)
 
 ## Rocket engine roar loop: low-pass filtered noise buffer with seamless crossfade.
 func _generate_engine_stream(rng: RandomNumberGenerator) -> AudioStreamWAV:
@@ -367,6 +432,42 @@ func _generate_touchdown_stream() -> AudioStreamWAV:
 		samples[i] = sum_val
 
 	_normalize_samples(samples, 0.8)
+	return _samples_to_wav(samples, false)
+
+## Soft, seamless overtone chord gives pulse travel a distinct synthetic field tone.
+func _generate_pulse_drive_stream() -> AudioStreamWAV:
+	var sample_count: int = SAMPLE_RATE
+	var samples: PackedFloat32Array = PackedFloat32Array()
+	samples.resize(sample_count)
+	for i in range(sample_count):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var slow_breath: float = 0.82 + 0.18 * sin(TAU * 2.0 * t)
+		var chord: float = (
+			0.52 * sin(TAU * 48.0 * t) +
+			0.29 * sin(TAU * 72.0 * t + 0.3) +
+			0.18 * sin(TAU * 96.0 * t + 0.8) +
+			0.10 * sin(TAU * 144.0 * t + 1.2)
+		)
+		samples[i] = chord * slow_breath
+	_normalize_samples(samples, 0.55)
+	return _samples_to_wav(samples, true)
+
+## Rising engage and falling arrival tones, synthesized as original procedural cues.
+func _generate_pulse_transition_stream(engaging: bool) -> AudioStreamWAV:
+	var duration_sec: float = 0.72
+	var sample_count: int = int(duration_sec * SAMPLE_RATE)
+	var samples: PackedFloat32Array = PackedFloat32Array()
+	samples.resize(sample_count)
+	var start_hz: float = 330.0 if engaging else 880.0
+	var end_hz: float = 990.0 if engaging else 220.0
+	var frequency_slope: float = (end_hz - start_hz) / duration_sec
+	for i in range(sample_count):
+		var t: float = float(i) / float(SAMPLE_RATE)
+		var phase: float = TAU * (start_hz * t + 0.5 * frequency_slope * t * t)
+		var envelope: float = pow(sin(PI * t / duration_sec), 1.4)
+		var tone: float = sin(phase) + 0.2 * sin(phase * 2.01 + 0.2)
+		samples[i] = tone * envelope
+	_normalize_samples(samples, 0.72)
 	return _samples_to_wav(samples, false)
 
 ## Normalizes samples so peak value equals target_peak.

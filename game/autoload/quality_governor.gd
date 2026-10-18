@@ -166,8 +166,9 @@ static func compute_thermal_render_scale(
 	thermal_headroom: float,
 	avg_gpu_ms: float
 ) -> float:
+	var bounded_scale: float = clampf(current_scale, MIN_FSR_SCALE, MAX_FSR_SCALE)
 	if thermal_headroom >= S2E_THERMAL_CRITICAL_HEADROOM:
-		return 0.60
+		return MIN_FSR_SCALE
 	if thermal_headroom >= S2E_THERMAL_WARN_HEADROOM or avg_gpu_ms > S2E_GPU_BUDGET_MS:
-		return maxf(0.60, current_scale - 0.05)
-	return clampf(current_scale, 0.60, 1.0)
+		return maxf(MIN_FSR_SCALE, bounded_scale - 0.05)
+	return bounded_scale

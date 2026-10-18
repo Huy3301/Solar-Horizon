@@ -34,6 +34,9 @@ func _resolve_nodes() -> void:
 	flight_telemetry = get_node_or_null("FlightTelemetry")
 	suit_bars = get_node_or_null("SuitBars")
 	inventory_menu = get_node_or_null("InventoryMenu")
+	if inventory_menu and inventory_menu.has_signal("closed"):
+		if not inventory_menu.closed.is_connected(_on_inventory_closed):
+			inventory_menu.closed.connect(_on_inventory_closed)
 	orbit_map = get_node_or_null("OrbitMap")
 	pause_menu = get_node_or_null("PauseMenu")
 	touch_controls = get_node_or_null("TouchControls")
@@ -124,6 +127,10 @@ func toggle_inventory() -> void:
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	inventory_toggled.emit(inventory_menu.visible)
+
+func _on_inventory_closed() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	inventory_toggled.emit(false)
 
 func toggle_orbit_map() -> void:
 	if not orbit_map:

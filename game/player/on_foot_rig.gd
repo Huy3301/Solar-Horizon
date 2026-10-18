@@ -86,7 +86,8 @@ func set_third_person(tp: bool) -> void:
 	is_third_person = tp
 	if spring_arm and camera_pivot:
 		spring_arm.spring_length = third_person_distance if is_third_person else 0.0
-		camera_pivot.position.y = third_person_height if is_third_person else first_person_height
+		var camera_height = third_person_height if is_third_person else first_person_height
+		camera_pivot.position = Vector3.UP * camera_height
 	camera_mode_changed.emit(is_third_person)
 
 func toggle_camera_mode() -> void:
@@ -142,6 +143,8 @@ func _physics_process(delta: float) -> void:
 	var grav_vec = calculate_gravity_vector()
 	var g_magnitude = grav_vec.length()
 	_gravity = g_magnitude
+	if g_magnitude > 0.01:
+		_apply_gravity_orientation(-grav_vec / g_magnitude)
 	
 	# Apply gravity acceleration
 	if not is_on_floor():
@@ -153,7 +156,7 @@ func _physics_process(delta: float) -> void:
 	if jetpack_active and _jetpack_fuel > 0.0:
 		_is_jetpacking = true
 		# Upward direction opposing gravity
-		var up_dir = -grav_vec.normalized() if g_magnitude > 0.01 else Vector3.UP
+		var up_dir = up_direction
 		velocity += up_dir * (JETPACK_FORCE * delta)
 		_jetpack_fuel = max(0.0, _jetpack_fuel - JETPACK_DRAIN_RATE * delta)
 		jetpack_fuel_changed.emit(_jetpack_fuel, JETPACK_MAX_FUEL)
@@ -166,27 +169,41 @@ func _physics_process(delta: float) -> void:
 
 	# Handle Jump (in lunar gravity, low gravity allows high buoyancy jumps)
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		var up_dir = -grav_vec.normalized() if g_magnitude > 0.01 else Vector3.UP
-		velocity += up_dir * JUMP_VELOCITY
+		velocity += up_direction * JUMP_VELOCITY
 
 	# Horizontal movement
 	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var move_basis = transform.basis
-	var direction = (move_basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	var direction = _get_movement_direction(input_dir)
 	
 	var current_speed = SPEED_WALK
 	if Input.is_action_pressed("sprint"):
 		current_speed = SPEED_SPRINT
 		
 	var horiz_accel = 20.0 if is_on_floor() else 4.0 # Less air authority in low gravity
-	if direction != Vector3.ZERO:
-		velocity.x = move_toward(velocity.x, direction.x * current_speed, horiz_accel * delta * current_speed)
-		velocity.z = move_toward(velocity.z, direction.z * current_speed, horiz_accel * delta * current_speed)
+	if up_direction.is_equal_approx(Vector3.UP):
+		# Retain the existing world-X/Z acceleration behavior on Earth-like gravity.
+		if direction != Vector3.ZERO:
+			velocity.x = move_toward(velocity.x, direction.x * current_speed, horiz_accel * delta * current_speed)
+			velocity.z = move_toward(velocity.z, direction.z * current_speed, horiz_accel * delta * current_speed)
+		else:
+			velocity.x = move_toward(velocity.x, 0.0, horiz_accel * delta * current_speed)
+			velocity.z = move_toward(velocity.z, 0.0, horiz_accel * delta * current_speed)
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, horiz_accel * delta * current_speed)
-		velocity.z = move_toward(velocity.z, 0.0, horiz_accel * delta * current_speed)
+		var planar_velocity = velocity.slide(up_direction)
+		var target_velocity = direction * current_speed
+		planar_velocity = planar_velocity.move_toward(target_velocity, horiz_accel * delta * current_speed)
+		velocity = planar_velocity + up_direction * velocity.dot(up_direction)
 
 	move_and_slide()
+
+func _get_movement_direction(input_dir: Vector2) -> Vector3:
+	return (global_transform.basis * Vector3(input_dir.x, 0, input_dir.y)).slide(up_direction).normalized()
+
+func _apply_gravity_orientation(up_dir: Vector3) -> void:
+	up_direction = up_dir.normalized()
+	var current_up = global_transform.basis.y.normalized()
+	var alignment = Quaternion(current_up, up_direction)
+	global_transform.basis = (Basis(alignment) * global_transform.basis).orthonormalized()
 
 func calculate_gravity_vector() -> Vector3:
 	if gravity_override != Vector3.ZERO:

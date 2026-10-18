@@ -30,6 +30,18 @@ func test_s2e_touch_steering_and_thermal_governor() -> void:
 
 	var throttled_scale: float = QualityGovernor.compute_thermal_render_scale(0.67, 0.96, 15.0)
 	assert_almost_eq(throttled_scale, 0.60, 1e-4, "Critical thermal headroom must step down render scale")
+	assert_almost_eq(
+		QualityGovernor.compute_thermal_render_scale(1.5, 0.2, 0.0),
+		1.0,
+		1e-4,
+		"Thermal render scale must not exceed the supported maximum"
+	)
+	assert_almost_eq(
+		QualityGovernor.compute_thermal_render_scale(-1.0, 0.2, 0.0),
+		0.60,
+		1e-4,
+		"Thermal render scale must not fall below the supported minimum"
+	)
 
 
 func test_s3_moon_landing_assist_eva_10_min_and_atomic_crafting() -> void:
@@ -68,6 +80,63 @@ func test_s4_star_class_diversity_and_seeded_system_determinism() -> void:
 	var sys_b: Dictionary = SystemLoader.build_seeded_system_state(424242)
 	assert_eq(str(sys_a["star_class"]), str(sys_b["star_class"]), "Same seed must produce identical star class")
 	assert_eq(int(sys_a["planet_count"]), int(sys_b["planet_count"]), "Same seed must produce identical planet count")
+
+
+func test_s4_spectral_selector_matches_seeded_star_and_class_ranges() -> void:
+	var class_counts: Dictionary = {}
+	for i: int in range(2000):
+		var seed: int = 1000 + i * 9973
+		var code: String = StarSystemGenerator.select_spectral_class_code(seed)
+		var system := StarSystemGenerator.new(seed)
+		assert_eq(code, StarSystemGenerator.select_spectral_class_code(seed), "Spectral selector must be deterministic")
+		assert_eq(code, _star_class_code(system.star_class), "Selector must match the generated star enum")
+
+		var mass_range: Vector2
+		var luminosity_range: Vector2
+		match code:
+			"O":
+				mass_range = Vector2(16.0, 90.0)
+				luminosity_range = Vector2(30000.0, 1000000.0)
+			"B":
+				mass_range = Vector2(2.1, 16.0)
+				luminosity_range = Vector2(25.0, 30000.0)
+			"A":
+				mass_range = Vector2(1.4, 2.1)
+				luminosity_range = Vector2(5.0, 25.0)
+			"F":
+				mass_range = Vector2(1.04, 1.4)
+				luminosity_range = Vector2(1.5, 5.0)
+			"G":
+				mass_range = Vector2(0.8, 1.04)
+				luminosity_range = Vector2(0.6, 1.5)
+			"K":
+				mass_range = Vector2(0.45, 0.8)
+				luminosity_range = Vector2(0.08, 0.6)
+			"M":
+				mass_range = Vector2(0.08, 0.45)
+				luminosity_range = Vector2(0.0001, 0.08)
+		assert_true(system.mass_solar >= mass_range.x and system.mass_solar <= mass_range.y, "%s class mass must be in its range" % code)
+		assert_true(system.luminosity >= luminosity_range.x and system.luminosity <= luminosity_range.y, "%s class luminosity must be in its range" % code)
+		class_counts[code] = int(class_counts.get(code, 0)) + 1
+
+	assert_true(int(class_counts.get("M", 0)) > 1000, "Plausible distribution must keep M-class stars as the majority")
+
+
+func _star_class_code(star_class: int) -> String:
+	match star_class:
+		StarSystemGenerator.StarClass.O:
+			return "O"
+		StarSystemGenerator.StarClass.B:
+			return "B"
+		StarSystemGenerator.StarClass.A:
+			return "A"
+		StarSystemGenerator.StarClass.F:
+			return "F"
+		StarSystemGenerator.StarClass.G:
+			return "G"
+		StarSystemGenerator.StarClass.K:
+			return "K"
+	return "M"
 
 
 func test_s5_discovery_upload_and_speed_upgrades() -> void:

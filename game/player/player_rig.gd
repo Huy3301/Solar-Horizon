@@ -61,8 +61,6 @@ func can_exit_ship() -> bool:
 		return true
 	if current_ship.has_method("is_ship_landed") and current_ship.is_ship_landed():
 		return true
-	if current_ship is RigidBody3D and (current_ship as RigidBody3D).linear_velocity.length() < 0.3:
-		return true
 		
 	return false
 

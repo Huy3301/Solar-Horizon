@@ -6,8 +6,8 @@
 [sub_resource type="SphereMesh" id="SphereMesh_moon"]
 radius = 173740.0
 height = 347480.0
-radial_segments = 128
-rings = 64
+radial_segments = 256
+rings = 128
 
 [node name="MoonVisual" type="Node3D"]
 script = ExtResource("1_vis")

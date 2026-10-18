@@ -77,6 +77,20 @@ func test_save_and_load_profile() -> void:
 	assert_almost_eq(profile_out["ship_state"]["hull"], 950.0, 0.01, "Ship hull matches")
 	assert_almost_eq(profile_out["survival_state"]["life_support"], 92.0, 0.01, "Life support matches")
 
+	var temp_dir_path: String = ProjectSettings.globalize_path(TEST_SAVE_PATH + ".tmp")
+	assert_eq(DirAccess.make_dir_absolute(temp_dir_path), OK, "Temporary path can be occupied to simulate a write failure")
+	assert_false(saver.save_profile({"credits": 1}, TEST_SAVE_PATH), "Save fails when its temporary path is not writable")
+	assert_eq(saver.load_profile(TEST_SAVE_PATH).get("credits"), 750, "Failed replacement preserves the previous profile")
+	assert_eq(DirAccess.remove_absolute(temp_dir_path), OK, "Temporary test directory removed")
+
+	var backup_path: String = ProjectSettings.globalize_path(TEST_SAVE_PATH + ".bak")
+	assert_eq(
+		DirAccess.rename_absolute(ProjectSettings.globalize_path(TEST_SAVE_PATH), backup_path),
+		OK,
+		"Simulated interrupted save leaves its previous profile in the backup"
+	)
+	assert_eq(saver.load_profile(TEST_SAVE_PATH).get("credits"), 750, "Load recovers an interrupted save from backup")
+
 	# Clean up test file
 	if FileAccess.file_exists(TEST_SAVE_PATH):
 		DirAccess.remove_absolute(TEST_SAVE_PATH)
@@ -111,6 +125,10 @@ func test_migration_from_v0_legacy() -> void:
 	assert_eq(migrated["credits"], 200, "Credits extracted from player dict")
 	assert_eq(migrated["unlocked_upgrades"]["suit_o2_tank"], 1, "Upgrades extracted")
 	assert_true(migrated.has("inventory"), "Inventory key created")
+	var migrated_inventory := InventorySystem.new()
+	migrated_inventory.from_dict(migrated["inventory"])
+	assert_eq(migrated_inventory.get_amount("iron_ore"), 10, "Legacy inventory items survive migration")
+	migrated_inventory.free()
 	assert_true(migrated.has("discoveries"), "Discoveries key created")
 	assert_true(migrated.has("ship_state"), "Default ship state populated")
 	assert_eq(migrated["ship_state"]["hull"], 1000.0, "Default hull is 1000")

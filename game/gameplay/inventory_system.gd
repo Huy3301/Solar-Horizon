@@ -133,6 +133,60 @@ func get_amount(item_data: Variant) -> int:
 func has_item(item_data: Variant, amount: int = 1) -> bool:
 	return get_amount(item_data) >= amount
 
+## Checks whether consuming inputs and adding products can be committed without exceeding capacity.
+func can_apply_item_transaction(required_inputs: Dictionary, products: Dictionary) -> bool:
+	return _build_item_transaction(required_inputs, products) is Dictionary
+
+## Applies all inventory changes together; failed transactions do not mutate inventory or emit signals.
+func apply_item_transaction(required_inputs: Dictionary, products: Dictionary) -> bool:
+	var candidate: Variant = _build_item_transaction(required_inputs, products)
+	if not candidate is Dictionary:
+		return false
+
+	var previous: Dictionary = inventory.duplicate()
+	inventory.clear()
+	inventory.merge(candidate)
+	for item_id in previous:
+		var amount: int = int(inventory.get(item_id, 0))
+		if amount != int(previous[item_id]):
+			inventory_changed.emit(item_id, amount)
+	for item_id in inventory:
+		if not previous.has(item_id):
+			inventory_changed.emit(item_id, int(inventory[item_id]))
+	return true
+
+func _build_item_transaction(required_inputs: Dictionary, products: Dictionary) -> Variant:
+	var candidate: Dictionary = inventory.duplicate()
+	for item_key in required_inputs:
+		var item_id: String = str(item_key)
+		var amount: int = int(required_inputs[item_key])
+		if item_id.is_empty() or amount <= 0 or int(candidate.get(item_id, 0)) < amount:
+			return null
+		var remaining: int = int(candidate[item_id]) - amount
+		if remaining == 0:
+			candidate.erase(item_id)
+		else:
+			candidate[item_id] = remaining
+
+	for item_key in products:
+		var item_id: String = str(item_key)
+		var amount: int = int(products[item_key])
+		if item_id.is_empty() or amount <= 0:
+			return null
+		candidate[item_id] = int(candidate.get(item_id, 0)) + amount
+
+	var total_mass: float = 0.0
+	var used_slots: int = 0
+	for item_id in candidate:
+		var count: int = int(candidate[item_id])
+		var item_def: ItemDef = get_item_def(item_id)
+		total_mass += float(count) * item_def.mass
+		used_slots += ceili(float(count) / float(maxi(1, item_def.stack_max)))
+
+	if (max_mass > 0.0 and total_mass > max_mass) or (max_slots > 0 and used_slots > max_slots):
+		return null
+	return candidate
+
 func transfer_to(other_inventory: InventorySystem, item_data: Variant, amount: int) -> int:
 	if other_inventory == null or amount <= 0:
 		return 0

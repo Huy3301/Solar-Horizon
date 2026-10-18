@@ -129,6 +129,7 @@ func _ready() -> void:
 	_update_engine_plumes(0.0)
 
 func _physics_process(delta: float) -> void:
+	var rcs_was_active: bool = rcs_active
 	if is_crashed:
 		_crash_timer += delta
 		if _crash_timer >= crash_recovery_s:
@@ -204,12 +205,9 @@ func _physics_process(delta: float) -> void:
 		non_grav_force = thrust_force
 	
 		if control_vtol > 0.01 and not is_crashed:
-			rcs_active = true
 			var vtol_thrust = up_dir * (control_vtol * max_rcs_thrust)
 			apply_central_force(vtol_thrust)
 			non_grav_force += vtol_thrust
-		else:
-			rcs_active = false
 		
 	
 		# Tiered speed regulation per regime (No Man's Sky flight speed limits)
@@ -239,7 +237,10 @@ func _physics_process(delta: float) -> void:
 	# Attitude controls with inertia scaling (B-05 fix)
 	if flight_model != FlightModelMode.ARCADE:
 		_apply_attitude_controls(dynamic_pressure)
-	_update_engine_plumes(1.0 if pulse_drive_active else (arcade_thrust_fraction if flight_model == FlightModelMode.ARCADE else current_throttle))
+	rcs_active = control_vtol > 0.01 and input_enabled and not is_crashed
+	var engine_audio_throttle: float = 0.0 if is_crashed else (1.0 if pulse_drive_active else (arcade_thrust_fraction if flight_model == FlightModelMode.ARCADE else current_throttle))
+	_update_engine_plumes(engine_audio_throttle if flight_model == FlightModelMode.ARCADE or pulse_drive_active else current_throttle)
+	_update_flight_audio(engine_audio_throttle, dynamic_pressure, rcs_was_active)
 	
 	# Collision-based landing evaluation (B-04 fix)
 	_evaluate_surface_contact(planet_up, altitude_agl)
@@ -285,6 +286,21 @@ func _handle_inputs(delta: float) -> void:
 
 func _update_throttle(delta: float) -> void:
 	current_throttle = move_toward(current_throttle, target_throttle, (1.0 / throttle_spool_rate) * delta)
+
+func _update_flight_audio(engine_throttle: float, dynamic_pressure: float, rcs_was_active: bool) -> void:
+	if not is_inside_tree():
+		return
+	var audio_mgr = get_tree().get_first_node_in_group("audio_manager")
+	if audio_mgr == null:
+		return
+	if audio_mgr.has_method("set_engine_throttle"):
+		audio_mgr.set_engine_throttle(engine_throttle)
+	if audio_mgr.has_method("set_reentry_pressure"):
+		audio_mgr.set_reentry_pressure(dynamic_pressure)
+	if audio_mgr.has_method("set_pulse_drive_intensity"):
+		audio_mgr.set_pulse_drive_intensity(1.0 if pulse_drive_active and not is_crashed else 0.0)
+	if rcs_active and not rcs_was_active and audio_mgr.has_method("play_rcs_burst"):
+		audio_mgr.play_rcs_burst()
 
 func _get_moments_of_inertia() -> Vector3:
 	var I = inertia
@@ -621,15 +637,25 @@ func engage_pulse_drive() -> bool:
 		
 	pulse_drive_active = true
 	_pulse_target_speed = maxf(linear_velocity.length(), 0.0)
+	var ship_vfx = get_node_or_null("ShipVFX")
+	if ship_vfx and ship_vfx.has_method("begin_pulse_drive"):
+		ship_vfx.begin_pulse_drive()
 	var audio_mgr2 = get_tree().get_first_node_in_group("audio_manager")
-	if audio_mgr2 and audio_mgr2.has_method("play_alert"):
-		audio_mgr2.play_alert("pulse_engage")
+	if audio_mgr2 and audio_mgr2.has_method("play_pulse_transition"):
+		audio_mgr2.play_pulse_transition(true)
 	return true
 
 func disengage_pulse_drive(reason: String = "") -> void:
 	if OS.has_environment("SH_DEBUG"): print("[pulse] disengage: ", reason, " speed=", linear_velocity.length(), " target=", _pulse_target_speed)
 	if pulse_drive_active:
 		pulse_drive_active = false
+		var ship_vfx = get_node_or_null("ShipVFX")
+		if ship_vfx and ship_vfx.has_method("end_pulse_drive"):
+			ship_vfx.end_pulse_drive()
 		var audio_mgr = get_tree().get_first_node_in_group("audio_manager")
-		if audio_mgr and audio_mgr.has_method("play_alert"):
-			audio_mgr.play_alert("overspeed")
+		if audio_mgr and audio_mgr.has_method("set_pulse_drive_intensity"):
+			audio_mgr.set_pulse_drive_intensity(0.0)
+		if audio_mgr and audio_mgr.has_method("play_pulse_transition"):
+			audio_mgr.play_pulse_transition(false)
+		if reason.begins_with("Proximity safety") and audio_mgr and audio_mgr.has_method("play_alert"):
+			audio_mgr.play_alert("critical")

@@ -10,7 +10,7 @@ func test_inventory_grid_init_and_navigation() -> void:
 	inv_menu._ready()
 	
 	assert_eq(inv_menu.slot_buttons.size(), inv_menu.slot_count, "Slot buttons array matches slot count")
-	assert_true(inv_menu.slot_buttons.size() >= 16, "Default inventory has at least 16 slots")
+	assert_eq(inv_menu.slot_buttons.size(), 20, "Default inventory grid matches the 20-slot gameplay capacity")
 	
 	# Check focus neighbor wiring on first slot
 	var slot0 = inv_menu.slot_buttons[0]
@@ -18,6 +18,32 @@ func test_inventory_grid_init_and_navigation() -> void:
 	assert_false(slot0.focus_neighbor_bottom.is_empty(), "First slot has bottom neighbor")
 	
 	inv_menu.free()
+
+func test_inventory_grid_tracks_capacity_and_cancel_restores_cursor() -> void:
+	var gui = preload("res://game/ui/game_ui.tscn").instantiate()
+	tree.root.add_child(gui)
+	gui._ready()
+	var inventory := InventorySystem.new()
+	inventory.max_slots = 20
+	for index in range(20):
+		inventory.inventory["test_item_%d" % index] = 1
+	gui.inventory_menu.set_inventory_system(inventory)
+	assert_eq(gui.inventory_menu.slot_buttons.size(), 20, "Grid displays all configured inventory slots")
+	assert_eq(str(gui.inventory_menu.slot_items[19].get("name", "")), "test_item_19", "The final occupied slot is displayed")
+
+	gui.toggle_inventory()
+	assert_eq(Input.mouse_mode, Input.MOUSE_MODE_VISIBLE, "Opening inventory shows the cursor")
+	var closed_state: Array[bool] = []
+	gui.inventory_toggled.connect(func(is_open: bool) -> void: closed_state.append(is_open))
+	var cancel_event := InputEventAction.new()
+	cancel_event.action = &"ui_cancel"
+	cancel_event.pressed = true
+	gui.inventory_menu._input(cancel_event)
+	assert_false(gui.inventory_menu.visible, "Cancel closes inventory")
+	assert_eq(closed_state, [false], "Cancel notifies GameUI so it can restore cursor mode")
+
+	inventory.free()
+	gui.free()
 
 func test_inventory_item_details_inspection() -> void:
 	var inv_scene = preload("res://game/ui/inventory_menu.tscn")

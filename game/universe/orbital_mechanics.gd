@@ -161,7 +161,7 @@ static func state_from_elements(elements: OrbitElements, mu: float, t_seconds_si
 	var e = elements.eccentricity
 	var M = elements.mean_anomaly_rad
 	
-	if elements.period_seconds > 0:
+	if e < 1.0:
 		var n = sqrt(mu / pow(a, 3.0))
 		M += n * t_seconds_since_epoch
 	elif e > 1.0:
@@ -359,4 +359,3 @@ static func propagate_universal(r0: DVec3, v0: DVec3, dt: float, mu: float = DEF
 	
 	var v1 = r0.mul_scalar(f_dot).add(v0.mul_scalar(g_dot))
 	return [r1, v1]
-

@@ -11,7 +11,7 @@
   - [~] Repo hygiene (archive Python tools to `tools/legacy/`, mockups to `concept_mockups/`, add `.gdignore`)
   - [~] Input map (comprehensive cross-platform mappings for flight, on-foot, and touch)
   - [~] Docs rewrite (honest README, master overhaul roadmap, engineering guidelines)
-  - [ ] Automated headless CI test pipeline (`tools/validate.ps1`, `tests/run_tests.gd`)
+  - [x] Automated headless CI test pipeline (`tools/validate.ps1`, `tests/run_tests.gd`)
   - [ ] Android export profiling baseline on Samsung Galaxy S26+
 
 - **Phase 1 — Universe Core (In Progress)**
@@ -34,7 +34,7 @@
   - [ ] One hero procedural planet + Earth/Moon onboarding tutorial path
   - [ ] On-foot controller (walk, sprint, jetpack, mining laser, visor scanner)
   - [ ] Life support survival systems and planetary hazards (thermal, radiation)
-  - [ ] Explorer HUD + mobile touch controls v1
+  - [~] Explorer HUD + mobile touch controls v1
   - [ ] Save/load system (world seed + delta persistence)
   - [ ] **Slice Gate:** 60 FPS sustained for 30 minutes on Exynos 2600 S26+
 
@@ -47,7 +47,7 @@
 
 - **Phase 5 — Procedural Universe**
   - [ ] Galaxy generator (stellar classification, physically derived planetary compositions)
-  - [ ] Hyperdrive warp transition sequence
+  - [~] Hyperdrive warp transition sequence
   - [ ] Galaxy and star system navigation map
   - [ ] Real-star catalogue skybox
   - [ ] Procedural water bodies and oceans (FFT on desktop, Gerstner on mobile)
@@ -484,6 +484,7 @@ flowchart LR
 - Full inventory, refining, crafting and tech tree. Suit and ship upgrades. 4 hazard types. Discovery catalogue and naming. Survey contracts. Procedural flora v2. Fauna v1 (3 body plans). Weather v1.
 
 ### Phase 5 — Procedural Universe (≈ 10 weeks)
+- [~] Pulse-drive warp presentation: charge, sustained travel, and arrival cues are integrated; system transitions and galaxy navigation remain.
 - Galaxy generator (star classes, physically derived planets), hyperdrive warp sequence, galaxy map, star catalogue skybox, biome families (lush, arid, frozen, toxic, scorched, radioactive, exotic), ring systems and moons, oceans (FFT/Gerstner).
 
 ### Phase 6 — Bases, Stations, Story (≈ 10 weeks)

@@ -33,6 +33,18 @@ func test_player_rig_eva_blocked_in_flight() -> void:
 	rig.free()
 	ship.free()
 
+func test_player_rig_stationary_unlanded_ship_blocks_eva() -> void:
+	var rig = PlayerRigScript.new()
+	var ship := RigidBody3D.new()
+	rig.set_ship(ship)
+
+	assert_false(rig.can_exit_ship(), "A stationary ship without landing state must not permit EVA")
+	assert_false(rig.exit_ship(), "A stationary ship without landing state must not transition to WALK")
+	assert_eq(rig.get_current_mode(), PlayerRigScript.PlayerMode.SHIP, "Mode remains SHIP")
+
+	rig.free()
+	ship.free()
+
 func test_player_rig_eva_allowed_when_landed() -> void:
 	var rig = PlayerRigScript.new()
 	var ship = MockShip.new()

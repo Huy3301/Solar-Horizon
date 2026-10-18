@@ -9,6 +9,31 @@ func test_cpu_noise_deterministic():
 	var b = TerrainNoise.sample_height(1.0, 0.0, 0.0)
 	assert_eq(a, b, "Noise should be deterministic")
 
+func test_terrain_lod_depth_configuration():
+	assert_eq(QualityGovernor.get_terrain_max_lod_depth(true, 0.5), 8, "Mobile terrain depth should use its configured budget")
+	assert_eq(QualityGovernor.get_terrain_max_lod_depth(true, 0.95), 7, "Critical mobile thermal headroom should reduce terrain depth")
+	assert_eq(QualityGovernor.get_terrain_max_lod_depth(false, 0.95), 16, "Desktop terrain depth configuration should remain unchanged")
+
+func test_mobile_critical_thermal_reduces_quadtree_depth():
+	var previous_is_mobile = QualityGovernor.is_mobile
+	var previous_thermal_headroom = QualityGovernor.thermal_headroom
+	var qt = PlanetQuadtree.new()
+	QualityGovernor.is_mobile = true
+	QualityGovernor.thermal_headroom = 0.5
+	qt._update_mobile_max_depth()
+	assert_eq(qt.max_depth, 8, "Mobile quadtree should use the configured depth at normal thermal headroom")
+
+	QualityGovernor.thermal_headroom = 0.95
+	qt._update_mobile_max_depth()
+	assert_eq(qt.max_depth, 7, "Mobile quadtree depth should decrease at critical thermal headroom")
+
+	QualityGovernor.thermal_headroom = 0.5
+	qt._update_mobile_max_depth()
+	assert_eq(qt.max_depth, 8, "Mobile quadtree depth should recover when thermal headroom improves")
+	QualityGovernor.is_mobile = previous_is_mobile
+	QualityGovernor.thermal_headroom = previous_thermal_headroom
+	qt.free()
+
 func test_quadtree_split_and_merge():
 	var qt = PlanetQuadtree.new()
 	qt.max_depth = 2
@@ -166,4 +191,3 @@ func test_geomorph_edge_height_sharing():
 	# Apply morph blend at factor 1.0
 	var morphed_height = lerpf(fine_detail_height, coarse_edge_midpoint, 1.0)
 	assert_almost_eq(morphed_height, coarse_edge_midpoint, 1e-6, "Morphed fine edge height must strictly equal coarse edge midpoint")
-

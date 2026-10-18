@@ -60,6 +60,10 @@ func test_moon_visual_scene_and_material() -> void:
 
 	var surf_node = moon.get_node_or_null("Surface")
 	assert_true(surf_node != null and surf_node is MeshInstance3D, "Moon surface node should exist")
+	if surf_node is MeshInstance3D and surf_node.mesh is SphereMesh:
+		var moon_mesh := surf_node.mesh as SphereMesh
+		assert_eq(moon_mesh.radial_segments, 256, "Moon limb resolution should match the high-detail planetary meshes")
+		assert_eq(moon_mesh.rings, 128, "Moon surface resolution should support crisp procedural crater relief")
 
 	moon.free()
 
@@ -86,6 +90,25 @@ func test_sky_environment_scene_and_material() -> void:
 	assert_almost_eq(sun_ctrl.current_eclipse_factor, 1.0, 1e-4, "Eclipse factor should be 1.0 with no occluders")
 
 	sky_env.free()
+
+func test_sun_direction_is_stable_at_large_world_positions() -> void:
+	var distant_parent := Node3D.new()
+	distant_parent.position = Vector3(1.0e9, -1.0e9, 1.0e9)
+	tree.root.add_child(distant_parent)
+	var sun := SunController.new()
+	var light := DirectionalLight3D.new()
+	sun.directional_light = light
+	sun.add_child(light)
+	distant_parent.add_child(sun)
+
+	var direction := Vector3(1.0, 0.2, -0.3).normalized()
+	sun.set_sun_direction(direction)
+	assert_true(
+		(-light.global_basis.z).dot(-direction) > 0.999,
+		"Directional light keeps the requested direction without position-based look_at precision loss"
+	)
+
+	distant_parent.free()
 
 func test_all_materials_load_and_compile() -> void:
 	var materials = [

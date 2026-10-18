@@ -7,7 +7,7 @@ signal item_selected(slot_index: int, item_data: Variant)
 signal item_activated(slot_index: int, item_data: Variant)
 signal closed()
 
-@export var slot_count: int = 16
+@export var slot_count: int = 20
 @export var grid_columns: int = 4
 
 var grid_container: GridContainer = null
@@ -80,6 +80,11 @@ func _setup_focus_neighbors() -> void:
 
 func set_inventory_system(inv: Node) -> void:
 	inventory_system = inv
+	if inv != null and "max_slots" in inv and int(inv.max_slots) > 0:
+		var inventory_slot_count: int = int(inv.max_slots)
+		if slot_count != inventory_slot_count:
+			slot_count = inventory_slot_count
+			_init_slots()
 	if inv and inv.has_signal("inventory_changed"):
 		if not inv.inventory_changed.is_connected(_on_inventory_changed):
 			inv.inventory_changed.connect(_on_inventory_changed)

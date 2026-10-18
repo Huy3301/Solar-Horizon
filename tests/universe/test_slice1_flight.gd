@@ -123,11 +123,21 @@ func test_on_foot_keys_do_not_fly_the_ship() -> void:
 	var ship: RigidBody3D = w.get_node("Ship")
 	var rig = w.get_node("PlayerRig")
 	await _step(240)
-	rig.exit_ship(true)
+	ship.linear_velocity = Vector3.ZERO
+	ship.angular_velocity = Vector3.ZERO
+	ship.current_throttle = 0.0
+	ship.target_throttle = 0.0
+	ship.landing_gear_deployed = true
+	ship.is_landed = true
+	assert_true(rig.exit_ship(), "Player can exit a parked, landed ship")
+	assert_false(ship.input_enabled, "Ship flight input is disabled after exiting the ship")
 	Input.action_press("vtol_up")
 	Input.action_press("throttle_up")
-	await _step(120)
-	assert_true(ship.linear_velocity.length() < 3.0, "parked ship ignores flight keys while on foot (%.1f m/s)" % ship.linear_velocity.length())
+	await tree.physics_frame
+	assert_false(ship.input_enabled, "Ship flight input remains disabled while on foot")
+	assert_eq(ship.control_vtol, 0.0, "VTOL input remains disabled while on foot")
+	assert_eq(ship.target_throttle, 0.0, "Throttle input remains disabled while on foot")
+	assert_false(ship.rcs_active, "Flight RCS remains inactive while on foot")
 	_cleanup(w)
 	complete()
 

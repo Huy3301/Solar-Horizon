@@ -45,6 +45,21 @@ func test_circular_orbit_period() -> void:
 	var r2 = state2[0] as DVec3
 	assert_vec_almost_eq(r1, r2, 100.0, "Circular orbit period")
 
+func test_elliptic_orbit_propagates_without_cached_period() -> void:
+	var elements = OrbitalMechanics.OrbitElements.new()
+	elements.semi_major_axis = 7000000.0
+	elements.eccentricity = 0.0
+	var mu: float = 3.986e14
+	var period: float = 2.0 * PI * sqrt(pow(elements.semi_major_axis, 3.0) / mu)
+	var initial_state = OrbitalMechanics.propagate(elements, mu, 0.0)
+	var opposite_state = OrbitalMechanics.propagate(elements, mu, period * 0.5)
+	assert_vec_almost_eq(
+		initial_state[0] as DVec3,
+		(opposite_state[0] as DVec3).mul_scalar(-1.0),
+		1.0,
+		"Elliptic orbit propagation derives mean motion when period_seconds is unset"
+	)
+
 func test_energy_conservation() -> void:
 	var elements = OrbitalMechanics.OrbitElements.new()
 	elements.semi_major_axis = 10000000.0

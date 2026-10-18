@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const AudioManagerScript = preload("res://game/audio/audio_manager.gd")
+const ShipFlightControllerScript = preload("res://scripts/ship_flight_controller.gd")
 
 func test_audio_manager_instantiation_and_stream_generation() -> void:
 	var audio: AudioManager = AudioManagerScript.new()
@@ -11,6 +12,8 @@ func test_audio_manager_instantiation_and_stream_generation() -> void:
 	assert_true(audio.rcs_player != null, "RCS player exists")
 	assert_true(audio.reentry_player != null, "Reentry player exists")
 	assert_true(audio.ui_player != null, "UI player exists")
+	assert_true(audio.pulse_drive_player != null, "Pulse drive field player exists")
+	assert_true(audio.pulse_transition_player != null, "Pulse transition player exists")
 
 	# Check streams generated
 	assert_true(audio.engine_stream != null, "Engine stream generated")
@@ -19,9 +22,12 @@ func test_audio_manager_instantiation_and_stream_generation() -> void:
 	assert_true(audio.click_stream != null, "Click stream generated")
 	assert_true(audio.alert_stream != null, "Alert stream generated")
 	assert_true(audio.touchdown_stream != null, "Touchdown stream generated")
+	assert_true(audio.pulse_drive_stream != null, "Pulse drive loop generated")
+	assert_true(audio.pulse_engage_stream != null, "Pulse engage cue generated")
+	assert_true(audio.pulse_arrival_stream != null, "Pulse arrival cue generated")
 
 	# Verify PCM WAV format parameters
-	for stream in [audio.engine_stream, audio.rcs_stream, audio.reentry_stream, audio.click_stream, audio.alert_stream, audio.touchdown_stream]:
+	for stream in [audio.engine_stream, audio.rcs_stream, audio.reentry_stream, audio.click_stream, audio.alert_stream, audio.touchdown_stream, audio.pulse_drive_stream, audio.pulse_engage_stream, audio.pulse_arrival_stream]:
 		assert_eq(stream.format, AudioStreamWAV.FORMAT_16_BITS, "Stream format is 16-bit PCM")
 		assert_eq(stream.mix_rate, AudioManager.SAMPLE_RATE, "Stream mix rate matches AudioManager SAMPLE_RATE")
 		assert_false(stream.stereo, "Stream is mono")
@@ -34,6 +40,9 @@ func test_audio_manager_instantiation_and_stream_generation() -> void:
 	assert_eq(audio.click_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "Click stream is one-shot")
 	assert_eq(audio.alert_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "Alert stream is one-shot")
 	assert_eq(audio.touchdown_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "Touchdown stream is one-shot")
+	assert_eq(audio.pulse_drive_stream.loop_mode, AudioStreamWAV.LOOP_FORWARD, "Pulse drive field loops forward")
+	assert_eq(audio.pulse_engage_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "Pulse engage cue is one-shot")
+	assert_eq(audio.pulse_arrival_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "Pulse arrival cue is one-shot")
 
 	# Verify duration bounds
 	var rcs_duration_sec: float = float(audio.rcs_stream.data.size() / 2) / float(audio.rcs_stream.mix_rate)
@@ -133,7 +142,67 @@ func test_tree_playback_and_headless_safety() -> void:
 		audio.play_ui_click()
 		audio.play_alert("warning")
 		audio.play_touchdown()
+		audio.set_pulse_drive_intensity(0.8)
+		audio.play_pulse_transition(true)
 
 		tree.root.remove_child(audio)
+		assert_false(audio.engine_player.playing, "Engine playback stops when AudioManager exits the tree")
+		assert_false(audio.rcs_player.playing, "RCS playback stops when AudioManager exits the tree")
+		assert_false(audio.reentry_player.playing, "Re-entry playback stops when AudioManager exits the tree")
+		assert_false(audio.ui_player.playing, "UI playback stops when AudioManager exits the tree")
+		assert_false(audio.pulse_drive_player.playing, "Pulse drive playback stops when AudioManager exits the tree")
+		assert_false(audio.pulse_transition_player.playing, "Pulse transition playback stops when AudioManager exits the tree")
 
+		await tree.create_timer(0.5).timeout
+	audio.free()
+
+func test_ship_flight_controller_updates_audio_manager() -> void:
+	var audio: AudioManager = AudioManagerScript.new()
+	var ship: ShipFlightController = ShipFlightControllerScript.new()
+	audio.add_to_group("audio_manager")
+	tree.root.add_child(audio)
+	tree.root.add_child(ship)
+
+	ship.rcs_active = true
+	ship._update_flight_audio(0.75, 25000.0, false)
+
+	assert_almost_eq(audio.current_throttle, 0.75, 0.001, "Ship throttle is forwarded to the audio manager")
+	assert_almost_eq(audio.current_reentry_q, 25000.0, 0.001, "Ship dynamic pressure is forwarded to the audio manager")
+	assert_almost_eq(audio.rcs_player.volume_db, -4.0, 0.01, "Starting RCS thrust triggers an audio burst")
+
+	ship.pulse_drive_active = true
+	ship._update_flight_audio(0.75, 25000.0, false)
+	assert_almost_eq(audio.current_pulse_drive_intensity, 1.0, 0.001, "Active pulse drive is sent to its own audio bed")
+	ship.pulse_drive_active = false
+	ship.rcs_active = false
+	ship._update_flight_audio(0.0, 0.0, true)
+	assert_almost_eq(audio.current_pulse_drive_intensity, 0.0, 0.001, "Pulse drive audio bed mutes after disengaging")
+	assert_eq(audio.current_throttle, 0.0, "Engine audio follows zero throttle")
+	assert_eq(audio.current_reentry_q, 0.0, "Re-entry audio follows zero dynamic pressure")
+	assert_true(audio.engine_player.volume_db <= -60.0, "Zero ship throttle mutes the engine channel")
+	assert_true(audio.reentry_player.volume_db <= -60.0, "Zero ship pressure mutes the re-entry channel")
+
+	tree.root.remove_child(ship)
+	tree.root.remove_child(audio)
+	await tree.create_timer(0.5).timeout
+	ship.free()
+	audio.free()
+
+func test_pulse_safety_disengage_keeps_warning_and_adds_arrival_cue() -> void:
+	var audio: AudioManager = AudioManagerScript.new()
+	var ship: ShipFlightController = ShipFlightControllerScript.new()
+	audio.add_to_group("audio_manager")
+	tree.root.add_child(audio)
+	tree.root.add_child(ship)
+
+	ship.pulse_drive_active = true
+	ship.disengage_pulse_drive("Proximity safety: pulse drive disengaged.")
+	assert_false(ship.pulse_drive_active, "Proximity safety still disengages pulse drive")
+	assert_eq(audio.last_alert_type, "critical", "Proximity disengagement retains an audible safety warning")
+	assert_eq(audio.pulse_transition_player.stream, audio.pulse_arrival_stream, "Safe arrival cue accompanies the disengagement")
+
+	tree.root.remove_child(ship)
+	tree.root.remove_child(audio)
+	await tree.create_timer(0.5).timeout
+	ship.free()
 	audio.free()

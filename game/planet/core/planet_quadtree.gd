@@ -59,11 +59,11 @@ class PatchNode:
 	var generating_collision: bool = false
 
 func _ready() -> void:
-	if OS.has_feature("mobile"):
+	if _is_mobile_platform():
 		patch_resolution = 33
-		max_depth = 8
 		split_distance_factor = 1.8
 		max_active_patches = 48
+		_update_mobile_max_depth()
 	else:
 		patch_resolution = 33
 		max_depth = 12
@@ -74,6 +74,14 @@ func _ready() -> void:
 	
 	_create_grid_mesh()
 	_init_roots()
+
+func _is_mobile_platform() -> bool:
+	return OS.has_feature("mobile") or QualityGovernor.is_mobile
+
+func _update_mobile_max_depth() -> void:
+	if not _is_mobile_platform():
+		return
+	max_depth = QualityGovernor.get_terrain_max_lod_depth(true, QualityGovernor.thermal_headroom)
 
 func _create_grid_mesh() -> void:
 	var st = SurfaceTool.new()
@@ -209,6 +217,7 @@ func _update_lod_camera() -> void:
 	lod_camera_pos = DVec3.new(dx * rr, dy * rr, dz * rr)
 
 func _process(_delta: float) -> void:
+	_update_mobile_max_depth()
 	_update_lod_camera()
 	# Far LOD altitude check: if camera is far above transition altitude, deactivate quadtree to save GPU
 	var cam_dist = camera_pos.length()

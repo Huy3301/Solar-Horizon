@@ -25,28 +25,28 @@ func _generate_system() -> void:
 
 func _generate_star() -> void:
 	# Simple distribution favoring M class stars (red dwarfs are common)
-	var roll = rng.randf()
-	if roll < 0.00003:
+	var class_code: String = _spectral_class_code_for_roll(rng.randf())
+	if class_code == "O":
 		star_class = StarClass.O
 		mass_solar = rng.randf_range(16.0, 90.0)
 		luminosity = rng.randf_range(30000.0, 1000000.0)
-	elif roll < 0.0013:
+	elif class_code == "B":
 		star_class = StarClass.B
 		mass_solar = rng.randf_range(2.1, 16.0)
 		luminosity = rng.randf_range(25.0, 30000.0)
-	elif roll < 0.0073:
+	elif class_code == "A":
 		star_class = StarClass.A
 		mass_solar = rng.randf_range(1.4, 2.1)
 		luminosity = rng.randf_range(5.0, 25.0)
-	elif roll < 0.0373:
+	elif class_code == "F":
 		star_class = StarClass.F
 		mass_solar = rng.randf_range(1.04, 1.4)
 		luminosity = rng.randf_range(1.5, 5.0)
-	elif roll < 0.1133:
+	elif class_code == "G":
 		star_class = StarClass.G
 		mass_solar = rng.randf_range(0.8, 1.04)
 		luminosity = rng.randf_range(0.6, 1.5)
-	elif roll < 0.2343:
+	elif class_code == "K":
 		star_class = StarClass.K
 		mass_solar = rng.randf_range(0.45, 0.8)
 		luminosity = rng.randf_range(0.08, 0.6)
@@ -92,7 +92,7 @@ func _generate_planets() -> void:
 		current_distance_au += rng.randf_range(0.4, 2.0) * current_distance_au
 
 
-## S4: Deterministic 64-bit SplitMix64 spectral class selector (fixes all-M-star bug).
+## S4: Deterministic spectral class selector sharing the generator's stellar distribution.
 const S4_SPECTRAL_CLASSES: Array[String] = ["O", "B", "A", "F", "G", "K", "M"]
 
 
@@ -105,18 +105,23 @@ static func splitmix64_hash(seed_value: int, salt: int) -> int:
 
 ## Returns deterministic star class ("O", "B", "A", "F", "G", "K", "M") from `system_seed`.
 static func select_spectral_class_code(system_seed: int) -> String:
-	var bucket: int = splitmix64_hash(system_seed, 404) % 1000
-	if bucket < 10:
+	var selector_rng := RandomNumberGenerator.new()
+	selector_rng.seed = system_seed
+	return _spectral_class_code_for_roll(selector_rng.randf())
+
+
+static func _spectral_class_code_for_roll(roll: float) -> String:
+	if roll < 0.00003:
 		return "O"
-	elif bucket < 40:
+	elif roll < 0.0013:
 		return "B"
-	elif bucket < 105:
+	elif roll < 0.0073:
 		return "A"
-	elif bucket < 230:
+	elif roll < 0.0373:
 		return "F"
-	elif bucket < 460:
+	elif roll < 0.1133:
 		return "G"
-	elif bucket < 720:
+	elif roll < 0.2343:
 		return "K"
 	return "M"
 

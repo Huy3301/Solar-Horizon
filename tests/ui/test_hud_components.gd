@@ -91,3 +91,107 @@ func test_touch_controls_mode_toggle() -> void:
 	assert_true(btn_jet.visible, "Jetpack button visible in on-foot mode")
 	
 	tc.free()
+
+func test_touch_controls_stick_drives_movement_and_flight_actions() -> void:
+	var tc = TouchControlsScript.new()
+	var stick = Control.new()
+	stick.position = Vector2(100.0, 300.0)
+	stick.size = Vector2(150.0, 150.0)
+	tc.movement_joystick = stick
+	tc.add_child(stick)
+	var center: Vector2 = stick.position + stick.size * 0.5
+
+	assert_false(tc._begin_stick_touch(2, center + Vector2(200.0, 0.0)), "Touches outside the stick base are ignored")
+	assert_true(tc._begin_stick_touch(2, center), "A touch on the stick base starts steering")
+	assert_true(tc._update_stick_touch(2, center + Vector2(100.0, 0.0)), "The active touch can drag beyond the stick base")
+	assert_almost_eq(Input.get_action_strength("move_right"), 1.0, 1e-4, "Right stick deflection drives on-foot movement")
+	assert_almost_eq(Input.get_action_strength("move_left"), 0.0, 1e-4, "Opposite movement action stays released")
+
+	tc._update_stick_touch(2, center + Vector2(0.0, -100.0))
+	assert_almost_eq(Input.get_action_strength("move_forward"), 1.0, 1e-4, "Up stick deflection drives forward movement")
+	assert_true(tc._end_stick_touch(2), "Releasing the active touch ends steering")
+	assert_almost_eq(Input.get_action_strength("move_right"), 0.0, 1e-4, "Movement actions release when the stick is released")
+	assert_almost_eq(Input.get_action_strength("move_forward"), 0.0, 1e-4, "Forward action releases when the stick is released")
+
+	tc.set_flight_mode(true)
+	assert_true(tc._begin_stick_touch(3, center), "The stick remains usable in flight mode")
+	tc._update_stick_touch(3, center + Vector2(100.0, -100.0))
+	assert_almost_eq(Input.get_action_strength("roll_right"), sqrt(0.5), 1e-4, "Right stick deflection drives flight roll")
+	assert_almost_eq(Input.get_action_strength("pitch_up"), sqrt(0.5), 1e-4, "Up stick deflection drives flight pitch")
+	assert_true(tc._end_stick_touch(3), "Flight stick touch can be released")
+	assert_almost_eq(Input.get_action_strength("roll_right"), 0.0, 1e-4, "Flight roll releases when the stick is released")
+	assert_almost_eq(Input.get_action_strength("pitch_up"), 0.0, 1e-4, "Flight pitch releases when the stick is released")
+	tc.free()
+
+func test_touch_controls_release_stick_on_cancel_mode_change_and_focus_loss() -> void:
+	var tc = TouchControlsScript.new()
+	var stick = Control.new()
+	stick.position = Vector2(100.0, 300.0)
+	stick.size = Vector2(150.0, 150.0)
+	tc.movement_joystick = stick
+	tc.add_child(stick)
+	var center: Vector2 = stick.position + stick.size * 0.5
+
+	assert_true(tc._begin_stick_touch(4, center), "Stick touch starts")
+	tc._update_stick_touch(4, center + Vector2(100.0, 0.0))
+	var canceled := InputEventScreenTouch.new()
+	canceled.index = 4
+	canceled.canceled = true
+	tc._input(canceled)
+	assert_almost_eq(Input.get_action_strength("move_right"), 0.0, 1e-4, "Canceled touch releases movement")
+	assert_eq(tc._stick_touch_index, -1, "Canceled touch clears the active finger")
+
+	assert_true(tc._begin_stick_touch(5, center), "Stick can be pressed again after cancellation")
+	tc._update_stick_touch(5, center + Vector2(100.0, 0.0))
+	tc._notification(Control.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	assert_almost_eq(Input.get_action_strength("move_right"), 0.0, 1e-4, "Losing window focus releases movement")
+
+	assert_true(tc._begin_stick_touch(6, center), "Stick can be pressed again after focus loss")
+	tc._update_stick_touch(6, center + Vector2(100.0, 0.0))
+	tc.set_flight_mode(true)
+	assert_almost_eq(Input.get_action_strength("move_right"), 0.0, 1e-4, "Changing modes releases the previous mode's movement")
+	tc.free()
+
+func test_touch_controls_release_stick_when_parent_hides_hud() -> void:
+	var parent := Control.new()
+	var tc := TouchControlsScript.new()
+	var stick := Control.new()
+	stick.name = "MovementJoystick"
+	stick.position = Vector2(100.0, 300.0)
+	stick.size = Vector2(150.0, 150.0)
+	tc.add_child(stick)
+	parent.add_child(tc)
+	tree.root.add_child(parent)
+	await tree.process_frame
+	tc.visible = true
+
+	var center: Vector2 = stick.position + stick.size * 0.5
+	assert_true(tc._begin_stick_touch(7, center), "Stick touch starts while the HUD is visible")
+	tc._update_stick_touch(7, center + Vector2(100.0, 0.0))
+	assert_almost_eq(Input.get_action_strength("move_right"), 1.0, 1e-4, "Visible HUD drives movement")
+
+	parent.hide()
+	tc._notification(Control.NOTIFICATION_VISIBILITY_CHANGED)
+	assert_true(tc.visible, "Child visibility property remains unchanged when its parent hides")
+	assert_false(tc.is_visible_in_tree(), "HUD is hidden through its parent")
+	assert_almost_eq(Input.get_action_strength("move_right"), 0.0, 1e-4, "Parent hiding the HUD releases movement")
+
+	parent.free()
+	await tree.process_frame
+
+func test_touch_controls_layout_scales_and_keeps_action_buttons_visible() -> void:
+	var tc = preload("res://game/ui/touch_controls.tscn").instantiate()
+	tree.root.add_child(tc)
+	await tree.process_frame
+	tc._layout_touch_controls()
+
+	assert_true(tc._hud_scale > 0.0, "Touch controls have a usable display scale")
+	assert_true(tc.jump_button.texture_normal != null, "Jump has a visible touch target")
+	assert_true(tc.interact_button.shape != null, "Interact has a real touch hit area")
+	assert_eq(tc.jump_button.action, "jump", "Jump touch target drives the existing gameplay action")
+	assert_eq(tc.interact_button.action, "interact", "Interact touch target drives the existing gameplay action")
+	assert_true(tc.jump_button.position.x < tree.root.get_visible_rect().size.x, "Jump target is positioned within the viewport")
+	assert_true(TouchControlsScript.compute_s26_hud_scale(Vector2i(3120, 1440)) > 1.0, "High-resolution displays enlarge touch targets")
+	assert_true(tc._calculate_hud_scale(Vector2(320.0, 480.0)) < tc._calculate_hud_scale(Vector2(1920.0, 1080.0)), "Portrait controls scale to fit the available screen")
+	tc.queue_free()
+	await tree.process_frame

@@ -69,9 +69,9 @@ func _update_sun_transform() -> void:
 	if directional_light:
 		# DirectionalLight3D shines along -Z in local space
 		# Orient light so -Z points towards sun_direction
-		var target = -sun_direction
-		var up = Vector3.UP if abs(target.y) < 0.99 else Vector3.RIGHT
-		directional_light.look_at(directional_light.global_position + target, up)
+		var target: Vector3 = -sun_direction
+		var up: Vector3 = Vector3.UP if abs(target.y) < 0.99 else Vector3.RIGHT
+		directional_light.global_basis = Basis.looking_at(target, up)
 
 func _update_light() -> void:
 	if directional_light:

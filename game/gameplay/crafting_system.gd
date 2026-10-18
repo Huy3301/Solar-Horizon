@@ -68,6 +68,8 @@ func get_stat(stat_name: String, default_val: float = 1.0) -> float:
 func can_craft(recipe: RecipeDef, inventory: InventorySystem) -> bool:
 	if recipe == null or inventory == null:
 		return false
+	if recipe.ingredients.is_empty() or (not recipe.is_upgrade and recipe.products.is_empty()):
+		return false
 
 	# If it's an upgrade, check tier progression
 	if recipe.is_upgrade:
@@ -76,23 +78,15 @@ func can_craft(recipe: RecipeDef, inventory: InventorySystem) -> bool:
 			# Must unlock tier sequentially
 			return false
 
-	# Check required ingredients in inventory
-	for item_key in recipe.ingredients:
-		var required_amount: int = int(recipe.ingredients[item_key])
-		if inventory.get_amount(str(item_key)) < required_amount:
-			return false
-
-	return true
+	return inventory.can_apply_item_transaction(recipe.ingredients, recipe.products)
 
 ## Executes crafting or upgrade unlocking, consuming ingredients
 func craft(recipe: RecipeDef, inventory: InventorySystem) -> bool:
 	if not can_craft(recipe, inventory):
 		return false
 
-	# Consume ingredients
-	for item_key in recipe.ingredients:
-		var required_amount: int = int(recipe.ingredients[item_key])
-		inventory.remove_item(str(item_key), required_amount)
+	if not inventory.apply_item_transaction(recipe.ingredients, recipe.products):
+		return false
 
 	# Handle upgrades vs standard items
 	if recipe.is_upgrade:
@@ -102,9 +96,6 @@ func craft(recipe: RecipeDef, inventory: InventorySystem) -> bool:
 		upgrade_unlocked.emit(recipe.upgrade_id, recipe.upgrade_tier, recipe.stat_modifiers)
 		stats_changed.emit(stats)
 	else:
-		for prod_key in recipe.products:
-			var prod_amount: int = int(recipe.products[prod_key])
-			inventory.add_item(str(prod_key), prod_amount)
 		item_crafted.emit(recipe, recipe.products)
 
 	return true

@@ -3,9 +3,44 @@ extends TestCase
 
 ## Smoke test for Ship VFX (WP 3.6):
 ## Verifies engine plume shader (shock diamonds, heat gradient, expansion),
-## RCS puff shader and socket wiring, and re-entry plasma heating response.
+## RCS puff shader and socket wiring, re-entry plasma, and pulse-drive visuals.
 
 const ShipVFXScript = preload("res://game/fx/ship_vfx.gd")
+
+func test_pulse_drive_overlay_and_full_transition() -> void:
+	var pulse_shader := load("res://shaders/fx/pulse_drive_overlay.gdshader") as Shader
+	assert_true(pulse_shader != null, "Pulse-drive screen shader loads")
+	if pulse_shader:
+		assert_true(pulse_shader.code.contains("radial_lines"), "Travel overlay uses radial high-speed streaks")
+		assert_true(pulse_shader.code.contains("arrival_ring"), "Arrival has a distinct expanding cue")
+
+	var ship_scene := load("res://scenes/ship.tscn") as PackedScene
+	var ship := ship_scene.instantiate() as ShipFlightController
+	var vfx := ship.get_node_or_null("ShipVFX") as ShipVFXScript
+	assert_true(vfx != null, "Ship VFX controller exists for pulse-drive sequence")
+	if vfx:
+		vfx.ensure_initialized()
+		assert_true(vfx._pulse_overlay != null, "Pulse overlay is created on the gameplay ship")
+		assert_false(vfx._pulse_overlay.visible, "Pulse overlay is hidden during ordinary flight")
+
+		vfx.begin_pulse_drive()
+		assert_eq(vfx.pulse_visual_stage, ShipVFXScript.PulseVisualStage.CHARGING, "Engagement starts with a charge")
+		assert_true(vfx._pulse_overlay.visible, "Charge becomes visible in gameplay")
+		vfx._process(0.45)
+		assert_true(vfx.pulse_stage_progress > 0.45 and vfx.pulse_stage_progress < 0.55, "Charge develops over time")
+		vfx._process(0.5)
+		assert_eq(vfx.pulse_visual_stage, ShipVFXScript.PulseVisualStage.TRAVEL, "Charge transitions into sustained travel")
+		vfx._process(0.4)
+		assert_true(vfx.pulse_travel_intensity > 0.5, "High-speed travel effect builds in")
+
+		vfx.end_pulse_drive()
+		assert_eq(vfx.pulse_visual_stage, ShipVFXScript.PulseVisualStage.ARRIVAL, "Disengagement starts an arrival sequence")
+		vfx._process(0.35)
+		assert_true(vfx.pulse_stage_progress > 0.35, "Arrival cue fades across a transition rather than cutting out")
+		vfx._process(0.6)
+		assert_eq(vfx.pulse_visual_stage, ShipVFXScript.PulseVisualStage.IDLE, "Arrival completes and returns to ordinary flight")
+		assert_false(vfx._pulse_overlay.visible, "Overlay fully clears after arrival")
+	ship.free()
 
 func test_engine_plume_shader() -> void:
 	var plume_shader = load("res://shaders/engine_plume.gdshader") as Shader
@@ -14,10 +49,10 @@ func test_engine_plume_shader() -> void:
 	if plume_shader:
 		var code: String = plume_shader.code
 		assert_true(code.contains("atmospheric_pressure_atm"), "Plume shader responds to atmospheric pressure")
-		assert_true(code.contains("expansion_factor"), "Plume shader contains expansion_factor uniform")
 		assert_true(code.contains("inner_color"), "Plume shader contains inner_color uniform")
 		assert_true(code.contains("outer_color"), "Plume shader contains outer_color uniform")
 		assert_true(code.contains("throttle"), "Plume shader contains throttle uniform")
+		assert_true(code.contains("plume_brightness"), "Plume shader contains plume_brightness uniform")
 		assert_true(code.contains("side_visibility"), "Plume core remains visible from side angles")
 		assert_true(code.contains("shock_diamonds"), "Plume shader retains animated shock diamonds")
 		
@@ -25,10 +60,9 @@ func test_engine_plume_shader() -> void:
 		var mat = ShaderMaterial.new()
 		mat.shader = plume_shader
 		mat.set_shader_parameter("atmospheric_pressure_atm", 0.0)  # Vacuum
-		mat.set_shader_parameter("expansion_factor", 1.5)
 		mat.set_shader_parameter("throttle", 1.0)
 		assert_almost_eq(mat.get_shader_parameter("atmospheric_pressure_atm"), 0.0, 1e-4, "Vacuum pressure set correctly")
-		assert_almost_eq(mat.get_shader_parameter("expansion_factor"), 1.5, 1e-4, "Expansion factor set correctly")
+		assert_almost_eq(mat.get_shader_parameter("throttle"), 1.0, 1e-4, "Throttle set correctly")
 
 func test_rcs_puff_shader() -> void:
 	var rcs_shader = load("res://shaders/fx/rcs_puff.gdshader") as Shader
@@ -236,13 +270,13 @@ func test_ship_vfx_atmosphere_expansion() -> void:
 					mat = plume.mesh.material as ShaderMaterial
 				assert_true(mat != null, "Plume has ShaderMaterial")
 				if mat:
-					var atm = mat.get_shader_parameter("atmosphere_density")
-					assert_true(atm != null, "atmosphere_density parameter is not null")
+					var atm = mat.get_shader_parameter("atmospheric_pressure_atm")
+					assert_true(atm != null, "atmospheric_pressure_atm parameter is not null")
 					if atm != null:
-						assert_almost_eq(float(atm), 1.0, 1e-4, "Plume material atmosphere_density matches")
-					var thr = mat.get_shader_parameter("thrust_intensity")
-					assert_true(thr != null, "thrust_intensity parameter is not null")
+						assert_almost_eq(float(atm), 1.0, 1e-4, "Plume material atmospheric pressure matches")
+					var thr = mat.get_shader_parameter("throttle")
+					assert_true(thr != null, "throttle parameter is not null")
 					if thr != null:
-						assert_almost_eq(float(thr), 0.85, 1e-4, "Plume material thrust_intensity matches")
+						assert_almost_eq(float(thr), 0.85, 1e-4, "Plume material throttle matches")
 					
 		ship.free()

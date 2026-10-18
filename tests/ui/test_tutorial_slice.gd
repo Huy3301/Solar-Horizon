@@ -26,6 +26,18 @@ func test_terrain_skirts_are_not_mountain_sized() -> void:
 	assert_true(src.length() > 100, "terrain shader readable")
 	assert_false(src.contains("max_height * 0.4"), "skirt depth no longer scales with max_height")
 
+func test_loaded_terrain_shader_exposes_debug_views() -> void:
+	var shader_path := "res://shaders/terrain/terrain_splat.gdshader"
+	var shader_code: String = FileAccess.get_file_as_string(shader_path)
+	var shader := ResourceLoader.load(shader_path) as Shader
+	assert_true(shader != null, "terrain shader loads and compiles as a Shader resource")
+	assert_true(shader_code.contains("uniform int debug_view_mode : hint_range(0, 4) = 0"), "debug view mode defaults to unchanged lit terrain")
+	assert_true(shader_code.contains("debug_color = N * 0.5 + 0.5"), "world-normal view displays encoded world normals")
+	assert_true(shader_code.contains("debug_color = vec3(normalized_height)"), "height view displays normalized terrain height")
+	assert_true(shader_code.contains("debug_color = hash33(vec3(patch_index"), "patch-ID view assigns a stable per-patch color")
+	assert_true(shader_code.contains("grid_line") and shader_code.contains("vec3(slope, 1.0 - slope"), "slope/grid view displays slope and patch grid")
+	assert_true(shader_code.contains("EMISSION = debug_color"), "debug colors are not obscured by scene lighting")
+
 func test_earth_relief_has_one_source_of_truth() -> void:
 	var scene_text: String = FileAccess.get_file_as_string("res://scenes/main.tscn")
 	var expected: String = "max_height_m = %s" % str(float(BodyFrames.MAX_HEIGHT_M[&"Earth"]))
